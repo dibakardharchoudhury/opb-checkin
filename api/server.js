@@ -350,7 +350,7 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
           const cat = passCategory(c.item !== -1 ? v[c.item] : "");
           passCounts[cat] = (passCounts[cat] || 0) + 1;
           recent.push({
-            session: t, order: String(v[c.order] ?? ""),
+            session: t, order: String(v[c.order] ?? ""), pass: cat,
             name: `${c.first !== -1 ? String(v[c.first] ?? "") : ""} ${c.last !== -1 ? String(v[c.last] ?? "") : ""}`.trim(),
             time: c.dt !== -1 ? String(v[c.dt] ?? "") : "",
           });
