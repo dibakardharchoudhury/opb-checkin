@@ -9,7 +9,7 @@ records the check-in (`Status` + `DateTime`) in the OPB Excel Online workbook.
 | Part | What | Where |
 | ---- | ---- | ----- |
 | Front end | Self-contained PWA scanner, vanilla JS, no build, no secrets | `webapp/index.html` (+ `sw.js`, `manifest.webmanifest`, icons) — GitHub Pages |
-| Back end | Express proxy: business rules + Microsoft Graph writes | `webapp/api/` — Azure App Service (Free F1) |
+| Back end | Express proxy: business rules + Microsoft Graph writes | `webapp/api/` — Azure App Service (reuses NorkappTrip's B1 plan `nordkapp-ai-plan` in `rg-agentmcp`; no new cost) |
 
 The workbook lives on a **personal OneDrive** (`osloprobaseebangali@outlook.com`), which
 has **no service principals**. So the backend reaches it with a **delegated** Graph
@@ -61,17 +61,17 @@ Either a path (simplest) or the driveItem id:
 - Id form: `GRAPH_WORKBOOK="id:<driveItemId>"`
 Set `TABLE_NAME` to the table you update (default `Table1`).
 
-### 4. Provision + deploy the backend (bare minimum, tenant `ad340c84…`)
+### 4. Provision + deploy the backend (reuses NorkappTrip infra, tenant `ad340c84…`)
 ```powershell
 az login --tenant ad340c84-1886-4202-a483-2da2cb9168eb
 cd webapp/api
-./provision.ps1 -Subscription "<sub>" -PagesOrigin "https://<user>.github.io"
-az webapp config appsettings set -n opb-checkin-api -g rg-opb-checkin --settings `
-  OPB_CLIENT_ID="<app id>" OPB_CLIENT_SECRET="<secret>" OPB_REFRESH_TOKEN="<from step 2>" `
-  GRAPH_WORKBOOK="path:/OPB Boishakhi Adda 2026.xlsx" TABLE_NAME="Table1"
-./push.ps1 -Subscription "<sub>"
+./provision.ps1        # adds web app opb-checkin-api onto the existing nordkapp-ai-plan / rg-agentmcp
+az webapp config appsettings set -n opb-checkin-api -g rg-agentmcp --settings `
+  OPB_CLIENT_ID="<app id>" OPB_CLIENT_SECRET="<secret>" OPB_REFRESH_TOKEN="<from step 2>"
+./push.ps1             # zip-deploy (same method as NorkappTrip)
 # verify: GET https://opb-checkin-api.azurewebsites.net/health -> {"ok":true}
 ```
+(`GRAPH_WORKBOOK="path:/Oslo Durgotsav 2026_Test.xlsx"` and `TABLE_NAME="Table1"` are preset by provision.ps1.)
 
 ### 5. Publish the front end
 Set `BACKEND_URL` at the top of `webapp/index.html` to the App Service URL, then serve

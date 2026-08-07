@@ -1,27 +1,30 @@
-# Bare-minimum Azure provisioning for the OPB check-in backend.
-# Hosting tenant: ad340c84-1886-4202-a483-2da2cb9168eb (Azure resources only).
-# The workbook itself lives on a PERSONAL OneDrive and is reached via a delegated
-# Graph refresh token (see authorize.js) — NOT via any Azure identity here.
+# Bare-minimum Azure provisioning for the OPB check-in backend — REUSES the existing
+# NorkappTrip infrastructure (no new plan, no new resource group, no extra cost).
 #
-# Resources created: 1 resource group + 1 Free (F1) Linux App Service plan + 1 web app.
-# That's it. No Key Vault, no managed identity, no premium connectors.
+# Hosting tenant: ad340c84-1886-4202-a483-2da2cb9168eb (the subscription below lives here).
+# We add ONE web app onto the existing B1 Linux plan "nordkapp-ai-plan" in "rg-agentmcp".
+# A B1 App Service plan hosts multiple apps for free, so this adds no monthly cost.
+#
+# The workbook itself lives on a PERSONAL OneDrive and is reached via a delegated
+# Graph refresh token (see authorize.js) — NOT via any Azure identity here. So unlike
+# NorkappTrip there is no managed identity / role assignment to make.
 #
 # Usage:
 #   az login --tenant ad340c84-1886-4202-a483-2da2cb9168eb
-#   ./provision.ps1 -Subscription "<your sub name or id>" -PagesOrigin "https://<user>.github.io"
+#   ./provision.ps1                     # uses the reused-infra defaults below
 # Then set the three secrets once the app registration + authorize.js are done:
 #   az webapp config appsettings set -n $App -g $Rg --settings `
 #       OPB_CLIENT_ID=... OPB_CLIENT_SECRET=... OPB_REFRESH_TOKEN=...
 # (GRAPH_WORKBOOK="path:/Oslo Durgotsav 2026_Test.xlsx" and TABLE_NAME are preset below.)
 
 param(
-  [Parameter(Mandatory = $true)][string]$Subscription,
-  [Parameter(Mandatory = $true)][string]$PagesOrigin,
-  [string]$Tenant = "ad340c84-1886-4202-a483-2da2cb9168eb",
-  [string]$Rg     = "rg-opb-checkin",
-  [string]$Loc    = "westeurope",
-  [string]$Plan   = "opb-checkin-plan",
-  [string]$App    = "opb-checkin-api"
+  [string]$Subscription = "ME-MngEnvMCAP677316-didharch-1",  # same sub as NorkappTrip
+  [string]$PagesOrigin  = "https://dibakardharchoudhury.github.io",
+  [string]$Tenant       = "ad340c84-1886-4202-a483-2da2cb9168eb",
+  [string]$Rg           = "rg-agentmcp",       # reuse NorkappTrip resource group
+  [string]$Plan         = "nordkapp-ai-plan",  # reuse NorkappTrip B1 Linux plan
+  [string]$Loc          = "swedencentral",     # only used if the plan must be created
+  [string]$App          = "opb-checkin-api"
 )
 $ErrorActionPreference = "Continue"
 
@@ -29,14 +32,17 @@ $ErrorActionPreference = "Continue"
 az account set --subscription $Subscription | Out-Null
 az account show --query "{tenant:tenantId, sub:name}" -o json
 
-"=== resource group ==="
+"=== ensure resource group (reused) ==="
 az group create -n $Rg -l $Loc 2>&1 | Out-Null; "rg exit=$LASTEXITCODE"
 
-"=== Free (F1) Linux plan ==="
-az appservice plan create -n $Plan -g $Rg -l $Loc --is-linux --sku F1 2>&1 | Out-Null
-"plan exit=$LASTEXITCODE"
+"=== ensure plan (reuse nordkapp-ai-plan; create B1 only if missing) ==="
+$planId = az appservice plan show -n $Plan -g $Rg --query id -o tsv 2>$null
+if (-not $planId) {
+  az appservice plan create -n $Plan -g $Rg -l $Loc --is-linux --sku B1 2>&1 | Out-Null
+  "plan created exit=$LASTEXITCODE"
+} else { "plan reused: $Plan" }
 
-"=== web app (Node 20) ==="
+"=== web app (Node 20 on the shared plan) ==="
 az webapp create -n $App -g $Rg -p $Plan --runtime "NODE:20-lts" 2>&1 | Out-Null
 "webapp exit=$LASTEXITCODE"
 
