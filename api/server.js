@@ -19,6 +19,7 @@ import {
 import { evaluateScan } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
 import { listStoredUsers, upsertUser, removeUser } from "./userstore.js";
+import { getConfig, setConfig } from "./configstore.js";
 
 const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
@@ -85,6 +86,20 @@ app.post("/api/auth", authLimiter, async (req, res) => {
 
 // GET /api/me -> current session (used by the SPA to restore a session on reload)
 app.get("/api/me", requireAuth(), (req, res) => res.json(req.user));
+
+// ---- shared check-in config (admin-set, everyone reads) ----
+// scanSheet = active event session; guestSheets = worksheets volunteers may view.
+app.get("/api/config", requireAuth(), async (_req, res) => {
+  try { res.json(await getConfig()); }
+  catch (e) { res.status(500).json({ error: "Could not load configuration." }); }
+});
+app.post("/api/config", requireAuth("admin"), async (req, res) => {
+  const patch = {};
+  if ("scanSheet" in (req.body || {})) patch.scanSheet = String(req.body.scanSheet || "");
+  if ("guestSheets" in (req.body || {})) patch.guestSheets = Array.isArray(req.body.guestSheets) ? req.body.guestSheets.map((s) => String(s)) : [];
+  try { res.json(await setConfig(patch)); }
+  catch (e) { res.status(500).json({ error: "Could not save configuration." }); }
+});
 
 // ---- Admin-only volunteer/role management ----
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
