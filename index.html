@@ -104,18 +104,33 @@
   .card .cap svg { width:16px; height:16px; }
   .card .body { padding:16px; }
 
-  #viewport { position:relative; aspect-ratio:1/1; width:100%; background:#1c0c0c; border-radius:16px;
-    overflow:hidden; box-shadow:0 0 0 3px rgba(217,164,65,.35) inset; }
-  #video { width:100%; height:100%; object-fit:cover; }
-  #reticle { position:absolute; inset:15%; border-radius:16px;
+  #viewport { position:relative; aspect-ratio:1/1; width:100%; border-radius:16px; overflow:hidden;
+    background:radial-gradient(120% 120% at 50% 32%, #fbf4e6 0%, #f3e7cf 55%, #ecd9b8 100%);
+    box-shadow:0 0 0 3px rgba(217,164,65,.35) inset; }
+  #video { width:100%; height:100%; object-fit:cover; display:none; }
+  #viewport.live #video { display:block; }
+  #viewport.live { background:#1c0c0c; }
+  /* Idle placeholder — shown when the camera is off (no perpetual animation). */
+  #vpIdle { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:12px; text-align:center; padding:24px; }
+  #viewport.live #vpIdle { display:none; }
+  #vpIdle .vpicon { width:78px; height:78px; display:flex; align-items:center; justify-content:center;
+    border-radius:20px; color:var(--maroon); background:linear-gradient(180deg,#fff,#f7ecd6);
+    box-shadow:0 8px 20px rgba(122,18,32,.14), 0 0 0 1px rgba(217,164,65,.55) inset; }
+  #vpIdle .vpicon svg { width:40px; height:40px; }
+  #vpIdle .vptitle { font-weight:700; font-size:16px; color:var(--maroon); }
+  #vpIdle .vphint { font-size:13px; color:var(--muted); max-width:230px; line-height:1.45; }
+  #reticle { position:absolute; inset:15%; border-radius:16px; display:none;
     box-shadow:0 0 0 2000px rgba(20,4,8,.42); pointer-events:none; }
+  #viewport.live #reticle { display:block; }
   #reticle::before, #reticle::after { content:""; position:absolute; width:28px; height:28px;
     border:3px solid var(--gold); }
   #reticle::before { top:-3px; left:-3px; border-right:0; border-bottom:0; border-radius:12px 0 0 0; }
   #reticle::after { bottom:-3px; right:-3px; border-left:0; border-top:0; border-radius:0 0 12px 0; }
-  .scanline { position:absolute; left:16%; right:16%; top:16%; height:2px; pointer-events:none;
+  .scanline { position:absolute; left:16%; right:16%; top:16%; height:2px; pointer-events:none; display:none;
     background:linear-gradient(90deg, transparent, var(--gold-2), transparent);
-    box-shadow:0 0 10px var(--gold); animation:scan 2.6s ease-in-out infinite; }
+    box-shadow:0 0 10px var(--gold); }
+  #viewport.live .scanline { display:block; animation:scan 2.6s ease-in-out infinite; }
   @keyframes scan { 0%,100%{ top:16% } 50%{ top:84% } }
 
   .banner { margin-top:14px; border-radius:14px; padding:16px; text-align:center; font-weight:600; font-size:18px;
@@ -433,6 +448,17 @@
           </div>
           <div id="viewport">
             <video id="video" playsinline muted></video>
+            <div id="vpIdle">
+              <div class="vpicon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 8V5a1 1 0 0 1 1-1h3"/><path d="M16 4h3a1 1 0 0 1 1 1v3"/>
+                  <path d="M20 16v3a1 1 0 0 1-1 1h-3"/><path d="M8 20H5a1 1 0 0 1-1-1v-3"/>
+                  <rect x="8.5" y="8.5" width="7" height="7" rx="1"/>
+                </svg>
+              </div>
+              <div class="vptitle">Ready to scan</div>
+              <div class="vphint">Tap &ldquo;Scan QR Code&rdquo; to open the camera.</div>
+            </div>
             <div id="reticle"></div>
             <div class="scanline"></div>
           </div>
@@ -591,8 +617,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.30"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T14:45:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.31"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T15:05:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -673,6 +699,7 @@ function stopCamera() {
   try { if (stream) stream.getTracks().forEach((t) => t.stop()); } catch {}
   stream = null;
   try { video.pause(); video.srcObject = null; } catch {}
+  $("viewport").classList.remove("live");
   $("startBtn").classList.remove("hidden");
   $("rescanBtn").classList.add("hidden");
 }
@@ -682,7 +709,7 @@ async function startCamera() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
     video.srcObject = stream; await video.play();
-    scanning = true; $("startBtn").classList.add("hidden"); $("rescanBtn").classList.add("hidden");
+    scanning = true; $("viewport").classList.add("live"); $("startBtn").classList.add("hidden"); $("rescanBtn").classList.add("hidden");
     setBanner("Scanning\u2026");
     if ("BarcodeDetector" in window) {
       const det = new BarcodeDetector({ formats: ["qr_code"] });
