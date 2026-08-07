@@ -232,7 +232,7 @@
   .loginNote { font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5; }
 
   /* ---- build-version badge (bottom-left) ---- */
-  .ver-badge { position:fixed; right:14px; bottom:14px; z-index:60; display:inline-flex; align-items:center; gap:7px;
+  .ver-badge { position:fixed; right:14px; bottom:14px; z-index:110; display:inline-flex; align-items:center; gap:7px;
     font-size:11.5px; font-weight:600; color:var(--gold-2); background:rgba(92,13,24,.9);
     border:1px solid rgba(244,207,130,.4); padding:6px 12px; border-radius:22px; cursor:pointer;
     box-shadow:0 6px 16px rgba(20,4,8,.4); backdrop-filter:blur(4px); }
@@ -444,8 +444,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v10"; // keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 11:09 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v11"; // keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 11:11 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
