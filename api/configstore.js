@@ -10,8 +10,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
+// On Azure App Service the persistent, shared storage is /home (regardless of $HOME,
+// which at runtime is not /home). Writing under it is what survives restarts/deploys.
 const DATA_DIR = process.env.DATA_DIR
-  || (process.env.HOME ? path.join(process.env.HOME, "data") : path.join(os.tmpdir(), "opb-data"));
+  || (process.env.WEBSITE_INSTANCE_ID ? "/home/data"
+    : process.env.HOME ? path.join(process.env.HOME, "data")
+    : path.join(os.tmpdir(), "opb-data"));
 const FILE = path.join(DATA_DIR, "opb-config.json");
 
 const DEFAULT = { scanSheet: "", guestSheets: [] };
