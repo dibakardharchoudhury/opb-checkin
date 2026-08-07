@@ -3,44 +3,40 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#7a1220" />
+<meta name="theme-color" content="#6e1526" />
 <title>OPB Check-in · Oslo Durgotsav</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600&family=Rozha+One&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --maroon:#7a1220; --maroon-2:#5c0d18; --red:#b11226; --sindoor:#c8102e;
-    --gold:#d9a441; --gold-2:#f4cf82; --marigold:#f39c12; --marigold-2:#f6b62b;
-    --cream:#fbf3e4; --ivory:#fff9ef; --ink:#2a1410; --muted:#7c6a5f;
-    --ok:#1f7a4d; --warn:#c77b00; --err:#b3231f;
+    --maroon:#6e1526; --maroon-2:#511021; --red:#8a2036; --sindoor:#8a2036;
+    --gold:#c8a24c; --gold-2:#e6d09a; --marigold:#c8a24c; --marigold-2:#d9bd78;
+    --cream:#f7f2ea; --ivory:#ffffff; --ink:#2b2320; --muted:#8c8075;
+    --ok:#1f8a54; --warn:#b9822a; --err:#b3231f;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { margin:0; height:100%; }
   body {
-    font-family:"Poppins",system-ui,sans-serif; color:var(--ink);
+    font-family:"Inter",system-ui,sans-serif; color:var(--ink);
     background:
-      radial-gradient(1100px 480px at 100% -12%, rgba(217,164,65,.22), transparent 60%),
-      radial-gradient(900px 520px at -12% 112%, rgba(177,18,38,.16), transparent 55%),
-      linear-gradient(180deg,#fdf6e8,var(--cream));
+      radial-gradient(1200px 520px at 100% -12%, rgba(200,162,76,.12), transparent 60%),
+      linear-gradient(180deg,#faf6ef,var(--cream));
     min-height:100dvh; display:flex; position:relative;
   }
   body::before, body::after { content:""; position:fixed; z-index:0; pointer-events:none;
     background:url("mandala.svg") center/contain no-repeat; }
-  body::before { top:-110px; right:-110px; width:400px; height:400px; opacity:.06; }
-  body::after { bottom:-140px; left:-140px; width:360px; height:360px; opacity:.05; }
-  .serif { font-family:"Playfair Display",serif; }
+  body::before { top:-120px; right:-120px; width:420px; height:420px; opacity:.04; }
+  body::after { content:none; }
+  .serif { font-family:"Cormorant Garamond",Georgia,serif; }
 
-  /* ---- marigold garland strip (decorative) ---- */
+  /* ---- slim gold accent strip ---- */
   .garland {
-    height:14px; width:100%;
-    background:
-      radial-gradient(circle at 7px 3px, var(--marigold) 5px, transparent 6px) 0 0/14px 14px repeat-x,
-      radial-gradient(circle at 7px 8px, var(--gold) 4px, transparent 5px) 0 0/14px 14px repeat-x;
-    filter:drop-shadow(0 1px 1px rgba(0,0,0,.15));
+    height:3px; width:100%;
+    background:linear-gradient(90deg, transparent, var(--gold) 22%, var(--gold-2) 50%, var(--gold) 78%, transparent);
   }
 
   /* ---- left nav rail ---- */
@@ -53,8 +49,8 @@
     box-shadow:6px 0 26px rgba(74,8,16,.28);
   }
   .brand { padding:22px 18px 14px; text-align:center; }
-  .chokkhu { width:104px; height:auto; margin:2px auto 10px; display:block; }
-  .brand h1 { font-family:"Rozha One",serif; font-size:26px; margin:2px 0 0; color:#fff; letter-spacing:.5px; }
+  .brand-logo { width:88px; height:88px; margin:2px auto 12px; display:block; border-radius:50%; box-shadow:0 6px 18px rgba(0,0,0,.28); }
+  .brand h1 { font-family:"Cormorant Garamond",serif; font-weight:700; font-size:28px; margin:2px 0 0; color:#fff; letter-spacing:.4px; }
   .brand .sub { font-size:11.5px; letter-spacing:3px; text-transform:uppercase; color:var(--gold-2); opacity:.85; }
   .nav { padding:10px; display:flex; flex-direction:column; gap:4px; flex:1; }
   .nav a {
@@ -83,9 +79,9 @@
   .topbar .burger { display:none; background:none; border:0; color:var(--maroon); padding:6px; cursor:pointer; }
   .topbar .burger svg { width:26px; height:26px; }
   .topbar .titles { min-width:0; }
-  .topbar .event { font-family:"Playfair Display",serif; font-weight:800; font-size:22px; color:var(--maroon);
-    line-height:1.1; }
-  .topbar .event span { color:var(--red); }
+  .topbar .event { font-family:"Cormorant Garamond",serif; font-weight:700; font-size:28px; color:var(--maroon);
+    line-height:1.05; }
+  .topbar .event span { color:#a87f34; }
   .topbar .tag { font-size:12px; color:var(--muted); letter-spacing:.4px; }
   .topbar .pill { margin-left:auto; font-size:12px; font-weight:600; color:var(--maroon);
     background:linear-gradient(180deg,#fff,#fdeccb); border:1px solid var(--gold);
@@ -150,7 +146,7 @@
   .stats { display:flex; gap:12px; margin-top:16px; }
   .stat { flex:1; background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:16px;
     padding:14px; text-align:center; box-shadow:0 6px 18px rgba(122,18,32,.07); }
-  .stat b { display:block; font-family:"Playfair Display",serif; font-size:30px; line-height:1; color:var(--maroon); }
+  .stat b { display:block; font-family:"Cormorant Garamond",serif; font-size:34px; font-weight:700; line-height:1; color:var(--maroon); }
   .stat.err b { color:var(--err); }
   .stat span { font-size:12px; color:var(--muted); letter-spacing:.3px; }
 
@@ -159,7 +155,7 @@
     background:#fff; border:1px solid rgba(217,164,65,.5); border-radius:50%; display:grid; place-items:center;
     box-shadow:0 6px 18px rgba(122,18,32,.08); }
   .placeholder .ico svg { width:30px; height:30px; }
-  .placeholder h3 { font-family:"Playfair Display",serif; color:var(--maroon); font-size:22px; margin:0 0 6px; }
+  .placeholder h3 { font-family:"Cormorant Garamond",serif; font-weight:700; color:var(--maroon); font-size:25px; margin:0 0 6px; }
   .placeholder p { margin:0 auto; max-width:340px; font-size:14px; line-height:1.6; }
 
   /* ---- live guest list: sortable table ---- */
@@ -206,6 +202,19 @@
   .sheettabs button b { font-weight:700; opacity:.7; }
   .sheettabs button.on { background:linear-gradient(180deg,var(--maroon),#5f0d18); color:#fff; border-color:var(--maroon); }
   .sess-ro { flex:1; min-width:0; padding:10px 12px; font-weight:700; color:var(--maroon); }
+  /* ---- connection status (scan page) ---- */
+  .conn { display:flex; align-items:center; gap:12px; margin:0 0 12px; padding:12px 14px;
+    background:#fff; border:1px solid rgba(217,164,65,.5); border-radius:14px; }
+  .conn-dot { width:13px; height:13px; border-radius:50%; background:#c7c7c7; flex:0 0 auto;
+    box-shadow:0 0 0 3px rgba(0,0,0,.05); transition:background .2s, box-shadow .2s; }
+  .conn-dot.ok { background:#2e9c54; box-shadow:0 0 0 3px rgba(46,156,84,.22); }
+  .conn-dot.bad { background:#d23b3b; box-shadow:0 0 0 3px rgba(210,59,59,.22); }
+  .conn-dot.testing { background:#dda63a; box-shadow:0 0 0 3px rgba(221,166,58,.22); animation:connBlink 1s infinite; }
+  @keyframes connBlink { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+  .conn-txt { flex:1; min-width:0; line-height:1.35; }
+  .conn-lead { display:block; font-size:13px; font-weight:700; color:var(--ink); }
+  .conn-target { display:block; font-size:11.5px; font-weight:600; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .conn-refresh { flex:0 0 42px; padding:8px; font-size:16px; line-height:1; }
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
   .tabchip { display:inline-flex; align-items:center; padding:7px 12px; border-radius:20px; cursor:pointer;
     font-size:13px; font-weight:600; color:var(--maroon); background:#fff; border:1.5px solid rgba(217,164,65,.6); user-select:none; }
@@ -249,7 +258,7 @@
   .result-modal.ok .result-card { border-top-color:#1f9a52; }
   .result-modal.warn .result-card { border-top-color:#c9852a; }
   .result-modal.err .result-card { border-top-color:#c23434; }
-  .result-title { font-family:"Playfair Display",serif; font-size:22px; font-weight:700; color:var(--maroon); margin:0 0 6px; line-height:1.25; }
+  .result-title { font-family:"Cormorant Garamond",serif; font-size:25px; font-weight:700; color:var(--maroon); margin:0 0 6px; line-height:1.2; }
   .result-sub { font-size:15px; color:var(--ink); margin:0 0 20px; word-break:break-word; }
   .result-card button { width:100%; }
   .hidden { display:none !important; }
@@ -275,8 +284,8 @@
   .ribbon { display:inline-block; background:linear-gradient(180deg,var(--gold-2),var(--gold));
     color:var(--maroon-2); font-weight:700; font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase;
     padding:5px 14px; border-radius:20px; box-shadow:0 4px 12px rgba(217,164,65,.45); margin-bottom:10px; }
-  .loginCard .chokkhu { width:118px; margin-bottom:6px; }
-  .loginCard h2 { font-family:"Rozha One",serif; color:var(--maroon); font-size:30px; margin:0; }
+  .loginCard .brand-logo { width:118px; height:118px; margin:0 auto 8px; display:block; }
+  .loginCard h2 { font-family:"Cormorant Garamond",serif; font-weight:700; color:var(--maroon); font-size:34px; margin:0; letter-spacing:.3px; }
   .loginCard .sub2 { color:var(--muted); font-size:13px; margin:2px 0 4px; letter-spacing:.3px; }
   .provlist { display:flex; flex-direction:column; gap:12px; margin-top:18px; align-items:center; }
   #googleBtn { min-height:44px; display:flex; justify-content:center; }
@@ -299,13 +308,7 @@
   .ver-badge.stale .ver-dot { background:#ffd7bd; }
   @keyframes vpulse { 50%{ opacity:.3 } }
 
-  /* ---- Howrah Bridge skyline backdrop ---- */
-  .skyline { position:fixed; left:0; right:0; bottom:0; height:120px; z-index:0; pointer-events:none;
-    background:var(--maroon); opacity:.10;
-    -webkit-mask:url("howrah.svg") bottom left/auto 120px repeat-x; mask:url("howrah.svg") bottom left/auto 120px repeat-x; }
-  #login::after { content:""; position:absolute; left:0; right:0; bottom:0; height:120px; z-index:0; pointer-events:none;
-    background:var(--gold-2); opacity:.34;
-    -webkit-mask:url("howrah.svg") bottom left/auto 120px repeat-x; mask:url("howrah.svg") bottom left/auto 120px repeat-x; }
+  /* ---- decorative helpers ---- */
   .loginCard { z-index:1; }
 
   @media (max-width:820px) {
@@ -319,28 +322,10 @@
 </head>
 <body>
 <div class="garland" style="position:fixed;top:0;left:0;z-index:40"></div>
-<div class="skyline" aria-hidden="true"></div>
 
 <aside id="rail">
   <div class="brand">
-    <!-- Durga chokkhu (the sacred eyes) — the signature Durga Puja motif -->
-    <svg class="chokkhu" viewBox="0 0 220 120" fill="none" aria-hidden="true">
-      <g stroke="#f4cf82" stroke-width="3.5" stroke-linecap="round">
-        <path d="M6 60 C 45 8, 85 8, 104 52"/>
-        <path d="M6 60 C 45 96, 85 96, 104 60"/>
-        <path d="M214 60 C 175 8, 135 8, 116 52"/>
-        <path d="M214 60 C 175 96, 135 96, 116 60"/>
-      </g>
-      <ellipse cx="60" cy="56" rx="20" ry="24" fill="#fff"/>
-      <ellipse cx="160" cy="56" rx="20" ry="24" fill="#fff"/>
-      <circle cx="60" cy="58" r="10" fill="#7a1220"/><circle cx="160" cy="58" r="10" fill="#7a1220"/>
-      <circle cx="63" cy="54" r="3" fill="#fff"/><circle cx="163" cy="54" r="3" fill="#fff"/>
-      <path d="M110 18 L104 46 L116 46 Z" fill="#c8102e"/>
-      <circle cx="110" cy="12" r="5" fill="#f4cf82"/>
-      <g stroke="#c8102e" stroke-width="2.5" stroke-linecap="round">
-        <path d="M40 96 q20 12 40 0"/><path d="M140 96 q20 12 40 0"/>
-      </g>
-    </svg>
+    <img class="brand-logo" src="opb-logo.svg" alt="OPB" />
     <h1>Oslo&nbsp;Durgotsav</h1>
     <div class="sub">Guest Check-in</div>
   </div>
@@ -397,10 +382,13 @@
           Scan a guest's pass
         </div>
         <div class="body">
-          <div class="sesspick unset" id="scanSessBox">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-            <label>Event session</label>
-            <div id="scanSheetRO" class="sess-ro"></div>
+          <div class="conn" id="scanSessBox">
+            <span class="conn-dot" id="connDot" title="Connection status"></span>
+            <div class="conn-txt">
+              <span class="conn-lead">Connected to:</span>
+              <span class="conn-target" id="connTarget">…</span>
+            </div>
+            <button class="conn-refresh ghost" id="connRefresh" title="Test connection" aria-label="Test connection">↻</button>
           </div>
           <div id="viewport">
             <video id="video" playsinline muted></video>
@@ -501,15 +489,7 @@
 
 <div id="login">
   <div class="loginCard">
-    <svg class="chokkhu" viewBox="0 0 220 120" fill="none" aria-hidden="true">
-      <g stroke="#c8102e" stroke-width="3.5" stroke-linecap="round">
-        <path d="M6 60 C 45 8, 85 8, 104 52"/><path d="M6 60 C 45 96, 85 96, 104 60"/>
-        <path d="M214 60 C 175 8, 135 8, 116 52"/><path d="M214 60 C 175 96, 135 96, 116 60"/>
-      </g>
-      <ellipse cx="60" cy="56" rx="20" ry="24" fill="#7a1220"/><ellipse cx="160" cy="56" rx="20" ry="24" fill="#7a1220"/>
-      <circle cx="60" cy="58" r="9" fill="#fff"/><circle cx="160" cy="58" r="9" fill="#fff"/>
-      <path d="M110 18 L104 46 L116 46 Z" fill="#c8102e"/><circle cx="110" cy="12" r="5" fill="#d9a441"/>
-    </svg>
+    <img class="brand-logo" src="opb-logo.svg" alt="OPB" />
     <div class="ribbon">Celebrating 10th Year</div>
     <h2>Oslo Durgotsav</h2>
     <div class="sub2">Volunteer Check-in · sign in to continue</div>
@@ -543,8 +523,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.17"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T11:30:52Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.19"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T12:03:47Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -666,6 +646,7 @@ $("startBtn").onclick = startCamera;
 $("rescanBtn").onclick = () => { lastValue = ""; setBanner("Scanning\u2026"); sub.textContent = ""; };
 $("manualBtn").onclick = () => { const v = $("manual").value.trim(); if (v) { submitOrder(v); $("manual").value = ""; } };
 $("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("manualBtn").click(); });
+$("connRefresh").onclick = () => testConnection();
 
 // ---- worksheet tabs (event sessions) + live guest list ----
 // The table renders dynamically from each worksheet's own headers, so different
@@ -943,16 +924,28 @@ async function saveConfig(patch) {
   try { const r = await api("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     const j = await r.json(); if (r.ok) { appConfig = { scanSheet: j.scanSheet || "", guestSheets: Array.isArray(j.guestSheets) ? j.guestSheets : [] }; applyConfig(); } } catch {}
 }
-// Reflect config + role across the scan display, guest tab bar, and settings controls.
+// Reflect config + role across the scan status, guest tab bar, and settings controls.
 function applyConfig() {
-  const ro = $("scanSheetRO");
-  if (ro) ro.textContent = appConfig.scanSheet
-    ? ((workbookLabel ? workbookLabel + " \u2192 " : "") + appConfig.scanSheet)
-    : "Not set \u2014 ask an admin";
-  const box = $("scanSessBox"); if (box) box.classList.toggle("unset", !appConfig.scanSheet);
   const cfg = $("cfgScan"); if (cfg) cfg.value = appConfig.scanSheet || "";
   renderTabBar();
   renderCfgSheets();
+  testConnection();
+}
+// Live health check: can the app reach the workbook + the target worksheet?
+async function testConnection() {
+  const dot = $("connDot"), target = $("connTarget");
+  if (!dot || !target) return;
+  const sheet = appConfig.scanSheet;
+  if (!sheet) { dot.className = "conn-dot"; target.textContent = isAdmin() ? "Not set — choose in Settings" : "Not set — ask an admin"; return; }
+  const label = (workbookLabel ? workbookLabel + " → " : "") + sheet;
+  dot.className = "conn-dot testing"; target.textContent = label;
+  try {
+    const r = await api("/api/ping-sheet?sheet=" + encodeURIComponent(sheet));
+    const j = await r.json();
+    const lab = ((j.workbook || workbookLabel) ? (j.workbook || workbookLabel) + " → " : "") + sheet;
+    if (j.ok) { dot.className = "conn-dot ok"; target.textContent = lab; }
+    else { dot.className = "conn-dot bad"; target.textContent = lab; }
+  } catch { dot.className = "conn-dot bad"; target.textContent = label; }
 }
 
 async function api(path, opts = {}) {

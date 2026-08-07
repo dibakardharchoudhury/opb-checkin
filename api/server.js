@@ -171,6 +171,23 @@ app.get("/api/tabs", requireAuth(), async (req, res) => {
   }
 });
 
+// GET /api/ping-sheet?sheet=<name> -> { ok, workbook, sheet, table? }
+// Lightweight connection test: can we reach the workbook and (if named) the worksheet's
+// check-in table? Always 200 so the UI can render a red/green light without throwing.
+app.get("/api/ping-sheet", requireAuth(), async (req, res) => {
+  const sheet = String(req.query.sheet || "").trim();
+  try {
+    const token = await getAccessToken();
+    const base = workbookBase();
+    if (!sheet) { await listWorksheets(token, base, null); return res.json({ ok: true, workbook: workbookName() }); }
+    const table = await firstTableName(token, base, null, sheet);
+    if (!table) return res.json({ ok: false, workbook: workbookName(), sheet, error: "No check-in table on that worksheet." });
+    res.json({ ok: true, workbook: workbookName(), sheet, table });
+  } catch (e) {
+    res.json({ ok: false, sheet, error: e?.message || "Cannot reach the spreadsheet." });
+  }
+});
+
 // POST /api/register { orderNumber, sheet }  ->  { response, customername, decision }
 // `sheet` names the event-day worksheet to check the guest into (e.g. "Saturday Dinner").
 app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
