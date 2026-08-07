@@ -62,7 +62,14 @@ app.disable("x-powered-by");
 app.use(express.json({ limit: "64kb" }));
 app.use((req, res, next) => {
   applyCors(req, res);
+  // Defence-in-depth headers. This is a JSON API (never framed, no referrer needed);
+  // responses under /api carry guest PII, so forbid any shared/intermediary caching.
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  if (req.path.startsWith("/api/")) res.setHeader("Cache-Control", "no-store");
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
