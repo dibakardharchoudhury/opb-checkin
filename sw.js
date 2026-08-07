@@ -1,6 +1,6 @@
 // Minimal offline shell for the OPB Check-in PWA. Scanning + registration require
 // the network (camera + backend), so we only cache the static shell here.
-const VERSION = "v1.23";
+const VERSION = "v1.24";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./mandala.svg", "./opb-logo.png", "./version.json", "./icon.svg", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {

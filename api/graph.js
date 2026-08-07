@@ -56,13 +56,21 @@ function workbookBase(loc) {
 }
 
 // List Excel workbooks (.xlsx) in the owner's OneDrive so an admin can pick the file.
+// Enumerates the drive deterministically (root children, paged) and also merges a
+// search pass to catch files kept in subfolders — search alone omits results.
 export async function listWorkbooks(token) {
-  const url = `${GRAPH}/me/drive/root/search(q='.xlsx')?$select=id,name,file&$top=100`;
-  const j = await gfetch(url, { token });
-  return (j.value || [])
-    .filter((it) => it.file && /\.xlsx$/i.test(it.name || ""))
-    .map((it) => ({ id: it.id, name: String(it.name).replace(/\.xlsx$/i, "") }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const map = new Map();
+  const add = (it) => {
+    if (it && it.id && it.file && /\.xlsx$/i.test(it.name || ""))
+      map.set(it.id, { id: it.id, name: String(it.name).replace(/\.xlsx$/i, "") });
+  };
+  let url = `${GRAPH}/me/drive/root/children?$select=id,name,file&$top=200`;
+  try { while (url) { const j = await gfetch(url, { token }); (j.value || []).forEach(add); url = j["@odata.nextLink"] || null; } } catch { /* ignore */ }
+  try {
+    let s = `${GRAPH}/me/drive/root/search(q='xlsx')?$select=id,name,file&$top=200`;
+    while (s) { const j = await gfetch(s, { token }); (j.value || []).forEach(add); s = j["@odata.nextLink"] || null; }
+  } catch { /* ignore */ }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function gfetch(url, { token, session, method = "GET", body } = {}) {
