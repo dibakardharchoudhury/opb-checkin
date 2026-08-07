@@ -289,7 +289,11 @@
   .loginCard h2 { font-family:"Cormorant Garamond",serif; font-weight:700; color:var(--maroon); font-size:34px; margin:0; letter-spacing:.3px; }
   .loginCard .sub2 { color:var(--muted); font-size:13px; margin:2px 0 4px; letter-spacing:.3px; }
   .provlist { display:flex; flex-direction:column; gap:12px; margin-top:18px; align-items:center; }
-  #googleBtn { min-height:44px; display:flex; justify-content:center; }
+  /* Custom Google button (matches .msbtn); the real Google widget sits on top, invisible, to catch the click. */
+  .gbtn-wrap { position:relative; width:100%; max-width:320px; margin:0 auto; }
+  .gbtn-face { width:100%; margin:0; pointer-events:none; }
+  .gbtn-gis { position:absolute; inset:0; opacity:.001; display:flex; align-items:center; justify-content:center; }
+  .gbtn-gis > div, .gbtn-gis iframe { width:100% !important; }
   .msbtn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; max-width:320px;
     padding:12px; border-radius:24px; border:1.5px solid #dadce0; background:#fff; color:#3c4043;
     font:inherit; font-weight:600; font-size:14px; cursor:pointer; }
@@ -497,7 +501,13 @@
     <h2>Oslo Durgotsav</h2>
     <div class="sub2">Volunteer Check-in · sign in to continue</div>
     <div class="provlist">
-      <div id="googleWrap"><div id="googleBtn"></div></div>
+      <div id="googleWrap" class="gbtn-wrap">
+        <button class="msbtn gbtn-face" type="button" tabindex="-1" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Continue with Google
+        </button>
+        <div id="googleBtn" class="gbtn-gis"></div>
+      </div>
       <button id="msBtn" class="msbtn">
         <svg viewBox="0 0 21 21" width="18" height="18" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
         Continue with Microsoft
@@ -527,8 +537,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.25"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T12:40:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.26"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T12:55:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1038,7 +1048,7 @@ function initGoogle() {
   if (!AUTH_CFG.google || AUTH_CFG.google.startsWith("REPLACE")) { $("googleWrap").style.display = "none"; return; }
   loadScript("https://accounts.google.com/gsi/client").then(() => {
     google.accounts.id.initialize({ client_id: AUTH_CFG.google, callback: (resp) => exchange("google", resp.credential) });
-    google.accounts.id.renderButton($("googleBtn"), { theme: "outline", size: "large", shape: "pill", text: "continue_with", width: 300 });
+    google.accounts.id.renderButton($("googleBtn"), { theme: "outline", size: "large", shape: "pill", text: "continue_with", width: 320 });
   }).catch(() => { $("googleWrap").style.display = "none"; });
 }
 
