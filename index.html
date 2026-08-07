@@ -412,7 +412,7 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v6"; // keep in lock-step with sw.js VERSION and version.json
+const APP_VERSION = "v7"; // keep in lock-step with sw.js VERSION and version.json
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -633,7 +633,7 @@ let msalApp = null;
 async function msSignIn() {
   if (!AUTH_CFG.microsoft || AUTH_CFG.microsoft.startsWith("REPLACE")) return;
   try {
-    if (!window.msal) await loadScript("https://alcdn.msauth.net/browser/3.7.1/js/msal-browser.min.js");
+    if (!window.msal) await loadScript("https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js");
     if (!msalApp) {
       msalApp = new msal.PublicClientApplication({ auth: {
         clientId: AUTH_CFG.microsoft, authority: "https://login.microsoftonline.com/consumers",
