@@ -232,6 +232,26 @@
   .urow .rm::after { content:none; }
 
   .credit { text-align:center; color:var(--muted); font-size:12px; padding:10px 16px 22px; }
+
+  /* ---- scan result popup ---- */
+  .result-modal { position:fixed; inset:0; z-index:120; display:flex; align-items:center; justify-content:center;
+    padding:24px; background:rgba(40,10,15,.55); backdrop-filter:blur(3px); }
+  .result-modal[hidden] { display:none; }
+  .result-card { width:100%; max-width:380px; background:#fff; border-radius:22px; padding:30px 24px 24px;
+    text-align:center; box-shadow:0 24px 70px rgba(0,0,0,.35); border-top:6px solid var(--gold);
+    animation:popIn .26s cubic-bezier(.2,.9,.3,1.3); }
+  @keyframes popIn { from { transform:scale(.85) translateY(10px); opacity:0; } to { transform:none; opacity:1; } }
+  .result-ico { width:78px; height:78px; margin:0 auto 16px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:44px; font-weight:800; color:#fff; box-shadow:0 8px 22px rgba(0,0,0,.18); }
+  .result-modal.ok .result-ico { background:linear-gradient(180deg,#3bbf6b,#1f9a52); }
+  .result-modal.warn .result-ico { background:linear-gradient(180deg,#e6a53a,#c9852a); }
+  .result-modal.err .result-ico { background:linear-gradient(180deg,#e05555,#c23434); }
+  .result-modal.ok .result-card { border-top-color:#1f9a52; }
+  .result-modal.warn .result-card { border-top-color:#c9852a; }
+  .result-modal.err .result-card { border-top-color:#c23434; }
+  .result-title { font-family:"Playfair Display",serif; font-size:22px; font-weight:700; color:var(--maroon); margin:0 0 6px; line-height:1.25; }
+  .result-sub { font-size:15px; color:var(--ink); margin:0 0 20px; word-break:break-word; }
+  .result-card button { width:100%; }
   .hidden { display:none !important; }
 
   /* ---- user chip + login gate ---- */
@@ -505,6 +525,15 @@
   </div>
 </div>
 
+<div id="resultModal" class="result-modal" hidden>
+  <div class="result-card" role="alertdialog" aria-live="assertive">
+    <div class="result-ico" id="resIco">✓</div>
+    <div class="result-title" id="resTitle"></div>
+    <div class="result-sub" id="resSub"></div>
+    <button id="resBtn">Scan next</button>
+  </div>
+</div>
+
 <div class="ver-badge checking" id="verBadge" role="status" aria-live="polite" title="App build"><span class="ver-dot"></span><span id="verText">…</span></div>
 
 <script>
@@ -514,7 +543,7 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.16"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_VERSION = "v1.17"; // major.minor; keep in lock-step with sw.js VERSION and version.json
 const APP_BUILT = "2026-08-07T11:30:52Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
@@ -540,10 +569,10 @@ async function submitOrder(raw) {
   if (!orderNumber) return;
   const sheet = appConfig.scanSheet;
   if (!sheet) {
-    setBanner(isAdmin() ? "Set the event session in Settings first" : "No event session set — ask an admin", "warn"); sub.textContent = "";
+    showResult("warn", "No event session set", isAdmin() ? "Set it in Settings first." : "Ask an admin to set it.", false);
     $("scanSessBox").classList.add("unset"); beep(false); return;
   }
-  setBanner("Verifying…", "busy"); sub.textContent = sheet + "  ·  order " + orderNumber;
+  setBanner("Verifying\u2026", "busy");
   try {
     const r = await api("/api/register", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -552,22 +581,50 @@ async function submitOrder(raw) {
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || "Request failed");
     const d = j.decision;
-    const cls = d === "SUCCESS" ? "ok" : d === "ALREADY" ? "warn" : "err";
-    setBanner(j.response || "Done", cls);
-    sub.textContent = (j.customername ? "👤 " + j.customername + "  ·  " : "") + "🎫 " + sheet;
+    const kind = d === "SUCCESS" ? "ok" : d === "ALREADY" ? "warn" : "err";
+    const who = j.customername && j.customername !== "Unknown" ? j.customername : "";
+    showResult(kind, j.response || "Done", (who ? who + "  \u00b7  " : "") + sheet);
     if (d === "SUCCESS") { okCount++; $("okCount").textContent = okCount; beep(true); sheetsStale = true; }
     else { errCount++; $("errCount").textContent = errCount; beep(false); }
   } catch (e) {
-    setBanner("Network error — try again", "err"); sub.textContent = e.message || "";
+    showResult("err", "Network error", "Please try again.");
     errCount++; $("errCount").textContent = errCount; beep(false);
+  } finally {
+    setBanner("");
   }
 }
 
+// One-shot scan popup. Turns the camera off first so a registered pass isn't re-read.
+let resRescan = true;
+function showResult(kind, title, sub, canRescan = true) {
+  resRescan = canRescan;
+  const m = $("resultModal");
+  m.className = "result-modal " + kind;
+  $("resIco").textContent = kind === "ok" ? "\u2713" : kind === "warn" ? "!" : "\u2715";
+  $("resTitle").textContent = title || "";
+  $("resSub").textContent = sub || "";
+  $("resBtn").textContent = canRescan ? "Scan next" : "OK";
+  m.hidden = false;
+}
+function closeResult() { $("resultModal").hidden = true; }
+$("resBtn").onclick = () => { closeResult(); if (resRescan) startCamera(); };
+$("resultModal").addEventListener("click", (e) => { if (e.target.id === "resultModal") closeResult(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("resultModal").hidden) closeResult(); });
+
 function onDetected(value) {
-  const now = Date.now();
-  if (value === lastValue && now - lastAt < COOLDOWN_MS) return;
-  lastValue = value; lastAt = now;
+  if (!scanning) return;
+  stopCamera();            // one-shot: stop as soon as a code is read
   submitOrder(value);
+}
+function stopCamera() {
+  scanning = false;
+  try { if (zxingReader && zxingReader.reset) zxingReader.reset(); } catch {}
+  zxingReader = null;
+  try { if (stream) stream.getTracks().forEach((t) => t.stop()); } catch {}
+  stream = null;
+  try { video.pause(); video.srcObject = null; } catch {}
+  $("startBtn").classList.remove("hidden");
+  $("rescanBtn").classList.add("hidden");
 }
 
 async function startCamera() {
@@ -575,7 +632,7 @@ async function startCamera() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
     video.srcObject = stream; await video.play();
-    scanning = true; $("startBtn").classList.add("hidden"); $("rescanBtn").classList.remove("hidden");
+    scanning = true; $("startBtn").classList.add("hidden"); $("rescanBtn").classList.add("hidden");
     setBanner("Scanning\u2026");
     if ("BarcodeDetector" in window) {
       const det = new BarcodeDetector({ formats: ["qr_code"] });
