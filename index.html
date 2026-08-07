@@ -514,8 +514,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.15"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 14:12 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v1.16"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T11:30:52Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -986,11 +986,17 @@ $("signOut").onclick = signOut;
 })();
 
 // ---- build-version badge + update prompt (Nordkapp-style) ----
+// Render the UTC build time in Oslo local time (auto CET/CEST with DST).
+function fmtBuilt(iso) {
+  try {
+    return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZoneName: "short" }).format(new Date(iso));
+  } catch { return iso; }
+}
 function initVersion() {
   const badge = $("verBadge"), text = $("verText");
   if (!badge || !text) return;
   if (/[?&]fresh=/.test(location.search)) { try { history.replaceState(null, "", location.pathname + location.hash); } catch {} }
-  const shown = APP_VERSION + " \u00b7 " + APP_BUILT;
+  const shown = APP_VERSION + " \u00b7 " + fmtBuilt(APP_BUILT);
   text.textContent = shown;
   const setState = (cls, label, title) => { badge.className = "ver-badge " + cls; if (label != null) text.textContent = label; if (title) badge.title = title; };
   let updateReady = false;
@@ -1007,8 +1013,8 @@ function initVersion() {
         // Self-heal a stuck build: hard-update once per session without a user tap.
         if (!sessionStorage.getItem("opb_selfupdate")) { sessionStorage.setItem("opb_selfupdate", "1"); badge.click(); }
       }
-      else { updateReady = false; setState("latest", shown, `On the latest build (${APP_VERSION}), built ${APP_BUILT}.`); }
-    } catch { setState("", shown, `Build ${APP_VERSION} \u00b7 built ${APP_BUILT}`); }
+      else { updateReady = false; setState("latest", shown, `On the latest build (${APP_VERSION}), built ${fmtBuilt(APP_BUILT)}.`); }
+    } catch { setState("", shown, `Build ${APP_VERSION} \u00b7 built ${fmtBuilt(APP_BUILT)}`); }
   }
   badge.addEventListener("click", async () => {
     if (!updateReady) { check(); return; }
