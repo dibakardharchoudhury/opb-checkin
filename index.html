@@ -571,7 +571,7 @@
     <div class="result-title" id="resTitle"></div>
     <div class="result-sub" id="resSub"></div>
     <div class="result-meta" id="resMeta"></div>
-    <button id="resBtn">Scan next</button>
+    <button id="resBtn">OK</button>
   </div>
 </div>
 
@@ -584,8 +584,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.28"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T13:20:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.29"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T14:20:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -636,21 +636,21 @@ async function submitOrder(raw) {
   }
 }
 
-// One-shot scan popup. Turns the camera off first so a registered pass isn't re-read.
-let resRescan = true;
+// One-shot scan popup. The camera is already off (stopped on detection); the popup
+// just reports the outcome with a single OK button and never re-arms the camera —
+// the volunteer taps "Scan QR Code" again when ready for the next guest.
 function showResult(kind, title, sub, canRescan = true, meta = "") {
-  resRescan = canRescan;
   const m = $("resultModal");
   m.className = "result-modal " + kind;
   $("resIco").textContent = kind === "ok" ? "\u2713" : kind === "warn" ? "!" : "\u2715";
   $("resTitle").textContent = title || "";
   $("resSub").textContent = sub || "";
   const me = $("resMeta"); me.textContent = meta || ""; me.style.display = meta ? "" : "none";
-  $("resBtn").textContent = canRescan ? "Scan next" : "OK";
+  $("resBtn").textContent = "OK";
   m.hidden = false;
 }
 function closeResult() { $("resultModal").hidden = true; }
-$("resBtn").onclick = () => { closeResult(); if (resRescan) startCamera(); };
+$("resBtn").onclick = () => closeResult();
 $("resultModal").addEventListener("click", (e) => { if (e.target.id === "resultModal") closeResult(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("resultModal").hidden) closeResult(); });
 
