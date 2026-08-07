@@ -232,7 +232,7 @@
   .loginNote { font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5; }
 
   /* ---- build-version badge (bottom-left) ---- */
-  .ver-badge { position:fixed; left:14px; bottom:14px; z-index:60; display:inline-flex; align-items:center; gap:7px;
+  .ver-badge { position:fixed; right:14px; bottom:14px; z-index:60; display:inline-flex; align-items:center; gap:7px;
     font-size:11.5px; font-weight:600; color:var(--gold-2); background:rgba(92,13,24,.9);
     border:1px solid rgba(244,207,130,.4); padding:6px 12px; border-radius:22px; cursor:pointer;
     box-shadow:0 6px 16px rgba(20,4,8,.4); backdrop-filter:blur(4px); }
@@ -444,7 +444,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v9"; // keep in lock-step with sw.js VERSION and version.json
+const APP_VERSION = "v10"; // keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 11:09 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -745,11 +746,12 @@ function initVersion() {
   const badge = $("verBadge"), text = $("verText");
   if (!badge || !text) return;
   if (/[?&]fresh=/.test(location.search)) { try { history.replaceState(null, "", location.pathname + location.hash); } catch {} }
-  text.textContent = APP_VERSION;
+  const shown = APP_VERSION + " \u00b7 " + APP_BUILT;
+  text.textContent = shown;
   const setState = (cls, label, title) => { badge.className = "ver-badge " + cls; if (label != null) text.textContent = label; if (title) badge.title = title; };
   let updateReady = false;
   async function check() {
-    setState("checking", APP_VERSION, "Checking for updates\u2026");
+    setState("checking", shown, "Checking for updates\u2026");
     try {
       if ("serviceWorker" in navigator) { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.update().catch(() => {}); }
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
@@ -761,8 +763,8 @@ function initVersion() {
         // Self-heal a stuck build: hard-update once per session without a user tap.
         if (!sessionStorage.getItem("opb_selfupdate")) { sessionStorage.setItem("opb_selfupdate", "1"); badge.click(); }
       }
-      else { updateReady = false; setState("latest", APP_VERSION, `You're on the latest build (${APP_VERSION}).`); }
-    } catch { setState("", APP_VERSION, `Build ${APP_VERSION}`); }
+      else { updateReady = false; setState("latest", shown, `On the latest build (${APP_VERSION}), built ${APP_BUILT}.`); }
+    } catch { setState("", shown, `Build ${APP_VERSION} \u00b7 built ${APP_BUILT}`); }
   }
   badge.addEventListener("click", async () => {
     if (!updateReady) { check(); return; }
