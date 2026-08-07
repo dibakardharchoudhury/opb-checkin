@@ -259,7 +259,8 @@
   .result-modal.warn .result-card { border-top-color:#c9852a; }
   .result-modal.err .result-card { border-top-color:#c23434; }
   .result-title { font-family:"Cormorant Garamond",serif; font-size:25px; font-weight:700; color:var(--maroon); margin:0 0 6px; line-height:1.2; }
-  .result-sub { font-size:15px; color:var(--ink); margin:0 0 20px; word-break:break-word; }
+  .result-sub { font-size:18px; font-weight:700; color:var(--ink); margin:0 0 3px; word-break:break-word; }
+  .result-meta { font-size:12.5px; color:var(--muted); margin:0 0 20px; }
   .result-card button { width:100%; }
   .hidden { display:none !important; }
 
@@ -512,6 +513,7 @@
     <div class="result-ico" id="resIco">✓</div>
     <div class="result-title" id="resTitle"></div>
     <div class="result-sub" id="resSub"></div>
+    <div class="result-meta" id="resMeta"></div>
     <button id="resBtn">Scan next</button>
   </div>
 </div>
@@ -525,8 +527,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.21"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T12:21:05Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.22"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T12:26:07Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -565,7 +567,8 @@ async function submitOrder(raw) {
     const d = j.decision;
     const kind = d === "SUCCESS" ? "ok" : d === "ALREADY" ? "warn" : "err";
     const who = j.customername && j.customername !== "Unknown" ? j.customername : "";
-    showResult(kind, j.response || "Done", (who ? who + "  \u00b7  " : "") + sheet);
+    const title = d === "SUCCESS" ? "Checked in" : d === "ALREADY" ? "Already checked in" : "Not a valid pass";
+    showResult(kind, title, "#" + orderNumber + (who ? "  \u00b7  " + who : ""), true, sheet);
     if (d === "SUCCESS") { okCount++; $("okCount").textContent = okCount; beep(true); sheetsStale = true; }
     else { errCount++; $("errCount").textContent = errCount; beep(false); }
   } catch (e) {
@@ -578,13 +581,14 @@ async function submitOrder(raw) {
 
 // One-shot scan popup. Turns the camera off first so a registered pass isn't re-read.
 let resRescan = true;
-function showResult(kind, title, sub, canRescan = true) {
+function showResult(kind, title, sub, canRescan = true, meta = "") {
   resRescan = canRescan;
   const m = $("resultModal");
   m.className = "result-modal " + kind;
   $("resIco").textContent = kind === "ok" ? "\u2713" : kind === "warn" ? "!" : "\u2715";
   $("resTitle").textContent = title || "";
   $("resSub").textContent = sub || "";
+  const me = $("resMeta"); me.textContent = meta || ""; me.style.display = meta ? "" : "none";
   $("resBtn").textContent = canRescan ? "Scan next" : "OK";
   m.hidden = false;
 }
