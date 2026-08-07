@@ -95,13 +95,34 @@ export async function firstTableName(token, base, session, worksheet) {
   return t ? t.name : null;
 }
 
-// Fallback reader for worksheets without a table: use the used range and treat the
-// first row as headers. Only used for viewing (no index-stable patch is possible).
+// Fallback reader for worksheets without a table: use the used range and detect the
+// real header row (many of these sheets have a title banner and/or a merged label
+// column above the actual headers). Only used for viewing.
 export async function readWorksheetUsedRange(token, base, session, worksheet) {
   const j = await gfetch(`${base}/worksheets/${encodeURIComponent(worksheet)}/usedRange(valuesOnly=true)?$select=values`, { token, session });
-  const values = j.values || [];
-  const headers = values.length ? values[0] : [];
-  const rows = values.slice(1).map((v, i) => ({ index: i, values: v }));
+  return shapeUsedRange(j.values || []);
+}
+
+// Pure shaping of a raw value grid into { headers, rows }. Exported for testing.
+// Picks the densest of the first rows as the header (skips title banners) and keeps
+// only columns that have both a header and at least one data value (drops merged
+// day-labels and empty columns).
+export function shapeUsedRange(values) {
+  if (!values || !values.length) return { headers: [], rows: [] };
+  const filled = (v) => String(v ?? "").trim() !== "";
+  const count = (row) => row.reduce((n, v) => n + (filled(v) ? 1 : 0), 0);
+  const scan = Math.min(values.length, 15);
+  let h = 0, best = -1;
+  for (let i = 0; i < scan; i++) { const c = count(values[i]); if (c > best) { best = c; h = i; } }
+  const headerRow = values[h] || [];
+  const dataRows = values.slice(h + 1);
+  const keep = [];
+  for (let c = 0; c < headerRow.length; c++) {
+    if (filled(headerRow[c]) && dataRows.some((r) => filled(r[c]))) keep.push(c);
+  }
+  const cols = keep.length ? keep : headerRow.map((_, c) => c);
+  const headers = cols.map((c) => headerRow[c]);
+  const rows = dataRows.map((r, i) => ({ index: i, values: cols.map((c) => r[c]) }));
   return { headers, rows };
 }
 

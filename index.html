@@ -514,8 +514,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.12"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 13:24 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v1.13"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 13:44 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -678,11 +678,14 @@ async function selectSheet(name, force) {
     if (!r.ok) throw new Error(j.error || "Failed to load");
     const sheet = (j.sheets || [])[0];
     if (sheet) {
-      // Keep only real entries: a non-empty row that carries an order / registration id.
+      // Keep real records: with an order column require it; otherwise require a couple
+      // of filled fields so pre-numbered empty rows (a lone Sl No.) aren't shown.
       const orderIdx = idxOf(sheet.headers, ORDER_COLS);
-      sheet.rows = (sheet.rows || []).filter((row) =>
-        row.some((v) => String(v ?? "").trim() !== "") &&
-        (orderIdx === -1 || String(row[orderIdx] ?? "").trim() !== ""));
+      sheet.rows = (sheet.rows || []).filter((row) => {
+        const filled = row.filter((v) => String(v ?? "").trim() !== "").length;
+        if (orderIdx !== -1) return filled > 0 && String(row[orderIdx] ?? "").trim() !== "";
+        return filled >= 2;
+      });
       sheet.count = sheet.rows.length;
       sheetStore[name] = sheet;
     }
