@@ -89,6 +89,31 @@ app.post("/api/register", scanLimiter, async (req, res) => {
   }
 });
 
+// GET /api/sheet -> { headers, rows, table, count, updatedAt }  (the live workbook)
+// Short-cached so opening the Guest List doesn't hammer Graph. NOTE: this returns
+// guest names/PII — gate it behind the volunteer/admin login when that phase lands.
+let sheetCache = { at: 0, data: null };
+app.get("/api/sheet", async (req, res) => {
+  const fresh = req.query.refresh === "1";
+  if (!fresh && sheetCache.data && Date.now() - sheetCache.at < 15_000) return res.json(sheetCache.data);
+
+  let token, base, session;
+  try {
+    token = await getAccessToken();
+    base = workbookBase();
+    session = await openSession(token, base);
+    const { headers, rows } = await readTable(token, base, session, TABLE_NAME);
+    const data = { headers, rows: rows.map((r) => r.values), table: TABLE_NAME, count: rows.length, updatedAt: new Date().toISOString() };
+    sheetCache = { at: Date.now(), data };
+    res.json(data);
+  } catch (e) {
+    console.error("sheet load failed:", e?.message || e);
+    res.status(500).json({ error: "Could not load the sheet.", detail: e?.message || String(e) });
+  } finally {
+    if (token && base && session) await closeSession(token, base, session);
+  }
+});
+
 const PORT = process.env.PORT || 8080;
 if (process.env.PORT !== "0") {
   app.listen(PORT, () => console.log(`OPB check-in backend on :${PORT} (tz=${TZ}, table=${TABLE_NAME})`));
