@@ -175,6 +175,32 @@
   .srow .sbar i.good { background:linear-gradient(90deg,var(--gold),#2e9c54); }
   .srow .sbar i.mid { background:linear-gradient(90deg,#d9a441,#c8a24c); }
   .srow .sbar i.low { background:linear-gradient(90deg,#c0261f,#d98c1c); }
+  /* ---- parking / food entry forms ---- */
+  .entryform .frow { margin-bottom:12px; }
+  .entryform .frow2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .entryform label { display:block; font-size:12px; font-weight:600; color:var(--maroon); margin-bottom:5px; letter-spacing:.2px; }
+  .entryform input, .entryform select { width:100%; padding:12px 12px; border:1px solid rgba(217,164,65,.55); border-radius:12px;
+    background:var(--ivory); color:var(--ink); font-size:15px; font-family:inherit; }
+  .entryform input:focus, .entryform select:focus { outline:none; border-color:var(--maroon); box-shadow:0 0 0 3px rgba(110,21,38,.12); }
+  .entryform #foodSave, .entryform #pkSave { margin-top:4px; }
+  .foodmenu-cap { font-size:11.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--maroon); margin:6px 0 10px; }
+  .foodmenu { display:flex; flex-direction:column; gap:8px; max-height:340px; overflow:auto; margin-bottom:12px; }
+  .fooditem { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid rgba(217,164,65,.22); }
+  .fooditem:last-child { border-bottom:0; }
+  .fooditem .fi-name { font-weight:600; font-size:14.5px; color:var(--ink); }
+  .fooditem .fi-price { font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .stepper { display:flex; align-items:center; gap:8px; }
+  .stepper button { flex:0 0 34px; width:34px; height:34px; padding:0; font-size:20px; line-height:1; border-radius:10px;
+    border:1px solid rgba(217,164,65,.6); background:var(--ivory); color:var(--maroon); cursor:pointer; }
+  .stepper button:active { background:var(--cream); }
+  .stepper .qv { min-width:24px; text-align:center; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .fooditem.on { background:rgba(217,164,65,.08); border-radius:10px; }
+  .foodtotalbar { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-radius:12px;
+    background:linear-gradient(150deg,var(--maroon),var(--maroon-2)); color:#fff; margin-bottom:12px; }
+  .foodtotalbar span { font-size:12px; text-transform:uppercase; letter-spacing:.4px; opacity:.85; }
+  .foodtotalbar b { font-family:"Cormorant Garamond",serif; font-size:24px; }
+  .entrymsg { min-height:20px; font-size:13.5px; font-weight:600; margin-bottom:10px; }
+  .entrymsg.ok { color:var(--ok); } .entrymsg.err { color:var(--err); } .entrymsg.busy { color:var(--muted); }
   .dashcap-note { font-weight:600; letter-spacing:0; text-transform:none; color:var(--muted); font-size:11.5px; }
   .dashmore-wrap { text-align:center; margin-top:12px; }
   .dashmore-wrap .ghost.hidden { display:none; }
@@ -414,11 +440,11 @@
     </a>
     <a data-view="parking">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
-      Parking <span class="soon">Soon</span>
+      Parking
     </a>
     <a data-view="food">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg>
-      Food Stall-Dues <span class="soon">Soon</span>
+      Food Stall-Dues
     </a>
     <a data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.09 3H10a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09A1.65 1.65 0 0 0 21 10.09H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -537,18 +563,39 @@
       </div>
     </section>
     <section class="view" data-view="parking">
-      <div class="placeholder">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg></div>
-        <h3>Parking</h3>
-        <p>Log and manage parking entries — volunteers will be able to add cars here. Coming soon.</p>
-      </div>
+      <div class="dashbar"><div class="dashtitle">Parking &mdash; add a car</div></div>
+      <div class="card"><div class="body entryform">
+        <div class="frow"><label for="pkName">Guest name</label><input id="pkName" list="guestNames" placeholder="Owner's name" autocomplete="off" /></div>
+        <div class="frow2">
+          <div><label for="pkMobile">Mobile number</label><input id="pkMobile" inputmode="tel" placeholder="e.g. +47 400 00 000" /></div>
+          <div><label for="pkReg">Car registration</label><input id="pkReg" placeholder="e.g. EL12345" style="text-transform:uppercase" /></div>
+        </div>
+        <div class="frow2">
+          <div><label for="pkMake">Make</label><input id="pkMake" placeholder="e.g. Toyota" /></div>
+          <div><label for="pkModel">Model</label><input id="pkModel" placeholder="e.g. Corolla" /></div>
+        </div>
+        <div class="frow2">
+          <div><label for="pkColour">Colour</label><input id="pkColour" placeholder="e.g. Silver" /></div>
+          <div><label for="pkDate">Date</label><input id="pkDate" type="date" /></div>
+        </div>
+        <div id="pkMsg" class="entrymsg"></div>
+        <button id="pkSave">Save car</button>
+      </div></div>
     </section>
     <section class="view" data-view="food">
-      <div class="placeholder">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div>
-        <h3>Food Stall-Dues</h3>
-        <p>Track food stall dues and add entries — coming soon.</p>
-      </div>
+      <div class="dashbar"><div class="dashtitle">Food stall &mdash; add purchase</div><button id="foodRefresh" class="ghost" title="Reload menu" aria-label="Reload menu">↻</button></div>
+      <div class="card"><div class="body entryform">
+        <div class="frow2">
+          <div><label for="foodName">Guest name</label><input id="foodName" list="guestNames" placeholder="Type or pick a name" autocomplete="off" /></div>
+          <div><label for="foodDay">Day</label><select id="foodDay"></select></div>
+        </div>
+        <datalist id="guestNames"></datalist>
+        <div class="foodmenu-cap">Menu <span id="foodMenuNote" class="dashcap-note"></span></div>
+        <div id="foodMenu" class="foodmenu"><div class="hint">Loading menu&hellip;</div></div>
+        <div class="foodtotalbar"><span>Order total</span><b id="foodOrderTotal">NOK 0</b></div>
+        <div id="foodMsg" class="entrymsg"></div>
+        <button id="foodSave">Save purchase</button>
+      </div></div>
     </section>
     <section class="view" data-view="settings">
       <div id="settingsAdmin" class="hidden">
@@ -636,8 +683,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.33"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T15:55:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.34"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T16:30:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1120,6 +1167,116 @@ function renderFlowChart(recent) {
 }
 $("dashRefresh").onclick = () => loadDashboard(true);
 
+// ---- parking + food stall entry (append-only writes) ----
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+let _foodMenu = [], _foodQty = {}, _namesLoaded = false;
+function money(n) { return "NOK " + (Math.round(Number(n || 0) * 100) / 100).toLocaleString("en-US"); }
+
+function openParking() {
+  const d = $("pkDate"); if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+  loadGuestNames();
+}
+async function openFood() { populateFoodDay(); loadGuestNames(); await loadFoodMenu(); }
+function populateFoodDay() {
+  const sel = $("foodDay"); if (!sel) return;
+  const today = WEEKDAYS[new Date().getDay()];
+  sel.innerHTML = WEEKDAYS.map((d) => "<option" + (d === today ? " selected" : "") + ">" + d + "</option>").join("");
+}
+
+// Guest-name type-ahead from the admin's guest sheets (best effort; free text still works).
+async function loadGuestNames() {
+  if (_namesLoaded) return;
+  const tabs = (appConfig.guestSheets || []).slice(0, 6);
+  if (!tabs.length) return;
+  try {
+    const r = await api("/api/sheet?tabs=" + encodeURIComponent(tabs.join(","))); const j = await r.json();
+    if (!r.ok) return;
+    const names = new Set();
+    for (const s of j.sheets || []) {
+      const hi = s.headers.map((h) => String(h || "").toLowerCase());
+      const fi = hi.findIndex((h) => h.includes("first")), li = hi.findIndex((h) => h.includes("last")), ni = hi.findIndex((h) => h.includes("name"));
+      for (const row of s.rows || []) {
+        let nm = "";
+        if (fi !== -1 || li !== -1) nm = ((fi !== -1 ? row[fi] : "") + " " + (li !== -1 ? row[li] : "")).trim();
+        else if (ni !== -1) nm = String(row[ni] || "").trim();
+        if (nm) names.add(nm);
+      }
+    }
+    $("guestNames").innerHTML = [...names].sort().map((n) => '<option value="' + esc(n) + '"></option>').join("");
+    _namesLoaded = true;
+  } catch { /* free text still works */ }
+}
+
+async function loadFoodMenu() {
+  const box = $("foodMenu"); box.innerHTML = '<div class="hint">Loading menu\u2026</div>';
+  try {
+    const r = await api("/api/foodmenu"); const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Failed");
+    _foodMenu = j.items || []; _foodQty = {};
+    renderFoodMenu();
+    $("foodMenuNote").textContent = _foodMenu.length ? "\u00b7 " + _foodMenu.length + " items" : "";
+  } catch { $("foodMenu").innerHTML = '<div class="sheet-empty">Could not load the menu \u2014 check the FoodStallPriceList sheet.</div>'; _foodMenu = []; }
+}
+function renderFoodMenu() {
+  const box = $("foodMenu");
+  if (!_foodMenu.length) { box.innerHTML = '<div class="sheet-empty">No items found in FoodStallPriceList.</div>'; updateFoodTotal(); return; }
+  box.innerHTML = _foodMenu.map((m, i) => {
+    const q = _foodQty[i] || 0;
+    return '<div class="fooditem' + (q > 0 ? " on" : "") + '" data-i="' + i + '">'
+      + '<div><div class="fi-name">' + esc(m.item) + '</div><div class="fi-price">' + money(m.price) + "</div></div>"
+      + '<div class="stepper"><button data-act="dec" aria-label="Decrease">\u2212</button><span class="qv">' + q + '</span><button data-act="inc" aria-label="Increase">+</button></div>'
+      + "</div>";
+  }).join("");
+  updateFoodTotal();
+}
+$("foodMenu").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act]"); if (!btn) return;
+  const row = e.target.closest(".fooditem"); const i = +row.dataset.i, cur = _foodQty[i] || 0;
+  _foodQty[i] = Math.max(0, Math.min(999, cur + (btn.dataset.act === "inc" ? 1 : -1)));
+  renderFoodMenu();
+});
+function updateFoodTotal() {
+  let t = 0; _foodMenu.forEach((m, i) => { t += (m.price || 0) * (_foodQty[i] || 0); });
+  $("foodOrderTotal").textContent = money(t);
+}
+const setFoodMsg = (m, cls) => { const e = $("foodMsg"); e.textContent = m || ""; e.className = "entrymsg" + (cls ? " " + cls : ""); };
+async function saveFood() {
+  const name = $("foodName").value.trim(), day = $("foodDay").value;
+  const items = _foodMenu.map((m, i) => ({ item: m.item, qty: _foodQty[i] || 0 })).filter((x) => x.qty > 0);
+  if (!name) { setFoodMsg("Enter the guest's name.", "err"); return; }
+  if (!items.length) { setFoodMsg("Add at least one item.", "err"); return; }
+  setFoodMsg("Saving\u2026", "busy"); $("foodSave").disabled = true;
+  try {
+    const r = await api("/api/food-entry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, day, items }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || "Failed");
+    setFoodMsg("Saved \u00b7 " + j.added + " item(s) \u00b7 " + money(j.amount) + " \u00b7 " + name + " total " + money(j.personTotal), "ok");
+    _foodQty = {}; renderFoodMenu();
+  } catch (e) { setFoodMsg(e.message || "Could not save.", "err"); }
+  finally { $("foodSave").disabled = false; }
+}
+$("foodSave").onclick = saveFood;
+$("foodRefresh").onclick = () => { _namesLoaded = false; loadGuestNames(); loadFoodMenu(); };
+
+const setPkMsg = (m, cls) => { const e = $("pkMsg"); e.textContent = m || ""; e.className = "entrymsg" + (cls ? " " + cls : ""); };
+async function savePark() {
+  const b = {
+    name: $("pkName").value.trim(), mobile: $("pkMobile").value.trim(), reg: $("pkReg").value.trim(),
+    make: $("pkMake").value.trim(), model: $("pkModel").value.trim(), colour: $("pkColour").value.trim(), date: $("pkDate").value,
+  };
+  if (!b.name) { setPkMsg("Enter the guest's name.", "err"); return; }
+  if (!b.reg && !b.mobile) { setPkMsg("Enter a car registration or mobile number.", "err"); return; }
+  setPkMsg("Saving\u2026", "busy"); $("pkSave").disabled = true;
+  try {
+    const r = await api("/api/parking-entry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || "Failed");
+    setPkMsg("Saved \u2713 car #" + (j.slNo || "") + " logged.", "ok");
+    ["pkMobile", "pkReg", "pkMake", "pkModel", "pkColour"].forEach((id) => { $(id).value = ""; });
+    $("pkName").value = ""; $("pkName").focus();
+  } catch (e) { setPkMsg(e.message || "Could not save.", "err"); }
+  finally { $("pkSave").disabled = false; }
+}
+$("pkSave").onclick = savePark;
+
 // ---- admin: volunteer / role management (Settings) ----
 function openSettings() {
   const admin = isAdmin();
@@ -1196,6 +1353,8 @@ function showView(name) {
   document.body.classList.toggle("view-guests", name === "guests");
   if (name === "guests") openGuests();
   if (name === "dashboard") loadDashboard(false);
+  if (name === "parking") openParking();
+  if (name === "food") openFood();
   if (name === "settings") openSettings();
 }
 document.getElementById("nav").addEventListener("click", (e) => {

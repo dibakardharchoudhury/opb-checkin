@@ -168,4 +168,47 @@ export async function patchRow(token, base, session, tableName, item) {
   });
 }
 
+// Append one or more rows (each an array of cell values) to a table.
+export async function addTableRows(token, base, session, tableName, rows) {
+  await gfetch(`${base}/tables/${encodeURIComponent(tableName)}/rows/add`, {
+    token, session, method: "POST", body: { values: rows },
+  });
+}
+
+// The table's header names, in physical column order.
+export async function tableHeaders(token, base, session, tableName) {
+  const h = await gfetch(`${base}/tables/${encodeURIComponent(tableName)}/headerRowRange`, { token, session });
+  return (h.values && h.values[0]) || [];
+}
+
+// 1->A, 26->Z, 27->AA … for building an A1 range from a column count.
+function colLetter(n) {
+  let s = ""; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+
+// Ensure a worksheet + Excel table exist for an append-only log; returns the table name.
+// If the worksheet already carries a table, that one is reused as-is (its own column order
+// is respected by the caller). Otherwise the worksheet (if missing) and a header-defined
+// table are created. Non-destructive: never touches existing data.
+export async function ensureLogTable(token, base, session, worksheet, headers, tableName) {
+  const names = await listWorksheets(token, base, session);
+  if (!names.some((n) => n.toLowerCase() === worksheet.toLowerCase())) {
+    await gfetch(`${base}/worksheets/add`, { token, session, method: "POST", body: { name: worksheet } });
+  }
+  const existing = await firstTableName(token, base, session, worksheet);
+  if (existing) return existing;
+  const addr = `A1:${colLetter(headers.length)}1`;
+  await gfetch(`${base}/worksheets/${encodeURIComponent(worksheet)}/range(address='${addr}')`, {
+    token, session, method: "PATCH", body: { values: [headers] },
+  });
+  const t = await gfetch(`${base}/tables/add`, {
+    token, session, method: "POST", body: { address: `'${worksheet}'!${addr}`, hasHeaders: true },
+  });
+  if (tableName && t && t.id) {
+    try { await gfetch(`${base}/tables/${t.id}`, { token, session, method: "PATCH", body: { name: tableName } }); return tableName; } catch { /* name taken */ }
+  }
+  return t.name;
+}
+
 export { workbookBase };

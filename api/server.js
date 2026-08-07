@@ -15,8 +15,9 @@ import rateLimit from "express-rate-limit";
 import {
   getAccessToken, workbookBase, openSession, closeSession, readTable, patchRow,
   listWorksheets, firstTableName, readWorksheetUsedRange, listWorkbooks,
+  addTableRows, tableHeaders, ensureLogTable,
 } from "./graph.js";
-import { evaluateScan } from "./rules.js";
+import { evaluateScan, nowInZone } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
 import { listStoredUsers, upsertUser, removeUser } from "./userstore.js";
 import { getConfig, setConfig } from "./configstore.js";
@@ -369,6 +370,150 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
   } finally {
     if (token && base && session) await closeSession(token, base, session);
   }
+});
+
+// ---- Parking + Food Stall entry (append-only writes to the workbook) ----
+// These endpoints only ADD rows (and, once, create a log worksheet/table if missing).
+// They never edit or delete existing data, so a mistake can't corrupt the register.
+const FOOD_PRICE_SHEET = "FoodStallPriceList";
+const FOOD_LOG_SHEET = "FoodStallLog";
+const FOOD_LOG_TABLE = "FoodStallLog";
+const FOOD_LOG_HEADERS = ["DateTime", "Day", "Name", "Item", "Qty", "UnitPrice", "Amount", "RecordedBy"];
+const PARKING_SHEET = "Parking";
+const PARKING_TABLE = "ParkingLog";
+const PARKING_HEADERS = ["Date", "Sl No", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
+const MAXLEN = 120;
+const clean = (v) => String(v == null ? "" : v).replace(/[\r\n\t]+/g, " ").trim().slice(0, MAXLEN);
+
+// Weekday name (e.g. "Saturday") for the event-day column, in the configured timezone.
+function weekdayName(tz, when = new Date()) {
+  try { return new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(when); } catch { return ""; }
+}
+
+// Build a row in an existing table's own column order by matching each header to a field.
+// fields = [[synonyms[], value], …]; unmatched headers get "".
+function rowForHeaders(headers, fields) {
+  return headers.map((h) => {
+    const low = String(h ?? "").trim().toLowerCase();
+    for (const [syns, val] of fields) if (syns.some((s) => low === s || low.includes(s))) return val;
+    return "";
+  });
+}
+
+function findCol(headers, cands) {
+  const low = headers.map((h) => String(h ?? "").trim().toLowerCase());
+  for (const c of cands) { const i = low.findIndex((h) => h.includes(c)); if (i !== -1) return i; }
+  return -1;
+}
+// Parse a price cell that may read "120", "120,-", "120 kr", "kr 120,50".
+function parsePrice(v) {
+  if (typeof v === "number") return isFinite(v) ? v : 0;
+  const s = String(v ?? "").replace(/[^0-9.,]/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".");
+  const n = parseFloat(s); return isFinite(n) ? n : 0;
+}
+
+// Read the price list into [{ item, price }], auto-detecting the item and price columns.
+async function readFoodMenu(token, base, session) {
+  const { headers, rows } = await readWorksheetUsedRange(token, base, session, FOOD_PRICE_SHEET);
+  let itemCol = findCol(headers, ["item", "dish", "food", "product", "name"]);
+  let priceCol = findCol(headers, ["price", "amount", "rate", "cost", "nok", "kr", "kroner"]);
+  const dataRows = rows.map((r) => r.values);
+  if (itemCol === -1) itemCol = headers.findIndex((_, c) => dataRows.some((r) => isNaN(parseFloat(r[c])) && String(r[c] ?? "").trim()));
+  if (priceCol === -1) priceCol = headers.findIndex((_, c) => c !== itemCol && dataRows.some((r) => parsePrice(r[c]) > 0));
+  const items = [];
+  if (itemCol === -1 || priceCol === -1) return items;
+  for (const r of dataRows) {
+    const item = clean(r[itemCol]); const price = parsePrice(r[priceCol]);
+    if (item && price >= 0 && !/^(item|dish|food|name|product)$/i.test(item)) items.push({ item, price });
+  }
+  return items;
+}
+
+// GET /api/foodmenu -> { workbook, items:[{item,price}] }
+app.get("/api/foodmenu", requireAuth(), async (_req, res) => {
+  let token, base, session;
+  try {
+    const { loc, name } = await wbContext();
+    token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    const items = await readFoodMenu(token, base, session);
+    res.json({ workbook: name, items });
+  } catch (e) {
+    console.error("foodmenu failed:", e?.message || e);
+    res.status(500).json({ error: "Could not load the food menu.", detail: e?.message || String(e) });
+  } finally { if (token && base && session) await closeSession(token, base, session); }
+});
+
+// POST /api/food-entry { name, items:[{item,qty}], day? } -> appends to FoodStallLog
+app.post("/api/food-entry", requireAuth(), async (req, res) => {
+  const name = clean(req.body?.name);
+  const day = clean(req.body?.day) || weekdayName(TZ);
+  const raw = Array.isArray(req.body?.items) ? req.body.items : [];
+  const items = raw.map((i) => ({ item: clean(i?.item), qty: Math.max(0, Math.min(999, parseInt(i?.qty, 10) || 0)) })).filter((i) => i.item && i.qty > 0);
+  if (!name) return res.status(400).json({ error: "Guest name is required." });
+  if (!items.length) return res.status(400).json({ error: "Add at least one item with a quantity." });
+  let token, base, session;
+  try {
+    const { loc } = await wbContext();
+    token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    const menu = await readFoodMenu(token, base, session);
+    const priceOf = (it) => { const hit = menu.find((m) => m.item.toLowerCase() === it.toLowerCase()); return hit ? hit.price : 0; };
+    const table = await ensureLogTable(token, base, session, FOOD_LOG_SHEET, FOOD_LOG_HEADERS, FOOD_LOG_TABLE);
+    const headers = await tableHeaders(token, base, session, table);
+    const iso = nowInZone(TZ).iso; const by = req.user.email;
+    let addedAmount = 0;
+    const rows = items.map((i) => {
+      const price = priceOf(i.item); const amount = Math.round(price * i.qty * 100) / 100; addedAmount += amount;
+      return rowForHeaders(headers, [
+        [["datetime", "date time", "time"], iso], [["day"], day], [["name"], name],
+        [["item", "dish", "food"], i.item], [["qty", "quantity"], i.qty],
+        [["unitprice", "unit price", "price", "rate"], price], [["amount", "total"], amount],
+        [["recordedby", "recorded by", "volunteer", "by"], by],
+      ]);
+    });
+    await addTableRows(token, base, session, table, rows);
+    // Running total for this guest across the whole log.
+    let personTotal = 0;
+    try {
+      const read = await readTable(token, base, session, table);
+      const nameCol = findCol(read.headers, ["name"]); const amtCol = findCol(read.headers, ["amount", "total"]);
+      if (nameCol !== -1 && amtCol !== -1)
+        for (const r of read.rows) if (String(r.values[nameCol] ?? "").trim().toLowerCase() === name.toLowerCase()) personTotal += parsePrice(r.values[amtCol]);
+    } catch { /* best effort */ }
+    res.json({ ok: true, added: rows.length, amount: Math.round(addedAmount * 100) / 100, personTotal: Math.round(personTotal * 100) / 100 });
+  } catch (e) {
+    console.error("food-entry failed:", e?.message || e);
+    res.status(500).json({ error: "Could not save the purchase.", detail: e?.message || String(e) });
+  } finally { if (token && base && session) await closeSession(token, base, session); }
+});
+
+// POST /api/parking-entry { name, mobile, reg, make, model, colour, date? } -> appends to Parking
+app.post("/api/parking-entry", requireAuth(), async (req, res) => {
+  const f = {
+    name: clean(req.body?.name), mobile: clean(req.body?.mobile), reg: clean(req.body?.reg).toUpperCase(),
+    make: clean(req.body?.make), model: clean(req.body?.model), colour: clean(req.body?.colour),
+    date: clean(req.body?.date) || nowInZone(TZ).ymd,
+  };
+  if (!f.name) return res.status(400).json({ error: "Guest name is required." });
+  if (!f.reg && !f.mobile) return res.status(400).json({ error: "Add a car registration or a mobile number." });
+  let token, base, session;
+  try {
+    const { loc } = await wbContext();
+    token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    const table = await ensureLogTable(token, base, session, PARKING_SHEET, PARKING_HEADERS, PARKING_TABLE);
+    const headers = await tableHeaders(token, base, session, table);
+    let slNo = "";
+    try { const read = await readTable(token, base, session, table); slNo = read.rows.length + 1; } catch { /* optional */ }
+    const row = rowForHeaders(headers, [
+      [["date"], f.date], [["sl", "serial", "s.no", "sno", "#"], slNo], [["name"], f.name],
+      [["mobile", "phone", "contact"], f.mobile], [["registration", "reg", "plate", "number plate", "car number"], f.reg],
+      [["make"], f.make], [["model"], f.model], [["colour", "color"], f.colour],
+    ]);
+    await addTableRows(token, base, session, table, [row]);
+    res.json({ ok: true, slNo });
+  } catch (e) {
+    console.error("parking-entry failed:", e?.message || e);
+    res.status(500).json({ error: "Could not save the car.", detail: e?.message || String(e) });
+  } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 
 const PORT = process.env.PORT || 8080;
