@@ -10,7 +10,7 @@ $ErrorActionPreference = "Continue"
 az account set --subscription $Subscription | Out-Null
 
 if (Test-Path app.zip) { Remove-Item app.zip -Force }
-Compress-Archive -Path server.js, graph.js, rules.js, auth.js, package.json, package-lock.json -DestinationPath app.zip -Force
+Compress-Archive -Path server.js, graph.js, rules.js, auth.js, userstore.js, package.json, package-lock.json -DestinationPath app.zip -Force
 "zip exit=$LASTEXITCODE"
 
 "=== deploy ==="

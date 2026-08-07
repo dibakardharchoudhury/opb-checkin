@@ -16,7 +16,8 @@ import {
   getAccessToken, workbookBase, openSession, closeSession, readTable, patchRow,
 } from "./graph.js";
 import { evaluateScan } from "./rules.js";
-import { verifyProviderToken, resolveRole, issueSession, requireAuth } from "./auth.js";
+import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
+import { listStoredUsers, upsertUser, removeUser } from "./userstore.js";
 
 const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
@@ -71,7 +72,7 @@ app.post("/api/auth", authLimiter, async (req, res) => {
   if (!provider || !credential) return res.status(400).json({ error: "provider and credential required" });
   try {
     const { email, name } = await verifyProviderToken(provider, credential);
-    const role = resolveRole(email);
+    const role = await resolveRoleMerged(email);
     if (!role) return res.status(403).json({ error: "This account is not approved for check-in access." });
     const token = await issueSession({ email, name, role });
     res.json({ token, name, role, email });
@@ -83,6 +84,38 @@ app.post("/api/auth", authLimiter, async (req, res) => {
 
 // GET /api/me -> current session (used by the SPA to restore a session on reload)
 app.get("/api/me", requireAuth(), (req, res) => res.json(req.user));
+
+// ---- Admin-only volunteer/role management ----
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const bootstrapAdmins = () => (process.env.ADMIN_EMAILS || "").split(/[,;\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+app.get("/api/users", requireAuth("admin"), async (req, res) => {
+  try {
+    const stored = await listStoredUsers();
+    const storedEmails = new Set(stored.map((u) => u.email));
+    const config = bootstrapAdmins().filter((e) => !storedEmails.has(e)).map((e) => ({ email: e, role: "admin", source: "config" }));
+    const users = stored.map((u) => ({ email: u.email, role: u.role, source: "app", addedBy: u.addedBy || null, addedAt: u.addedAt || null }));
+    res.json({ me: req.user.email, users: [...config, ...users].sort((a, b) => a.email.localeCompare(b.email)) });
+  } catch (e) { res.status(500).json({ error: "Could not load users." }); }
+});
+
+app.post("/api/users", requireAuth("admin"), async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const role = req.body?.role === "admin" ? "admin" : "user";
+  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: "Enter a valid email address." });
+  if (bootstrapAdmins().includes(email)) return res.status(409).json({ error: "That account is the built-in admin (managed in configuration)." });
+  try { await upsertUser(email, role, req.user.email); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: "Could not save the user." }); }
+});
+
+app.post("/api/users/remove", requireAuth("admin"), async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "email required" });
+  if (bootstrapAdmins().includes(email)) return res.status(409).json({ error: "The built-in admin can't be removed here." });
+  if (email === req.user.email) return res.status(409).json({ error: "You can't remove your own access." });
+  try { const removed = await removeUser(email); res.json({ ok: true, removed }); }
+  catch (e) { res.status(500).json({ error: "Could not remove the user." }); }
+});
 
 // POST /api/register { orderNumber }  ->  { response, customername, decision }
 app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {

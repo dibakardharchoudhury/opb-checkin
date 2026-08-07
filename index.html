@@ -179,6 +179,22 @@
   .grow .tm { font-size:11px; color:var(--muted); margin-top:3px; }
   .sheet-empty { text-align:center; color:var(--muted); padding:26px; line-height:1.6; }
 
+  /* ---- volunteer / role management ---- */
+  .userform { display:flex; gap:8px; margin-bottom:12px; }
+  .userform input { flex:1; min-width:0; }
+  .userform select { flex:0 0 auto; padding:12px 10px; border-radius:12px; border:1.5px solid rgba(217,164,65,.7); background:#fff; color:var(--ink); font:inherit; }
+  .userform button { flex:0 0 74px; padding:12px; }
+  .uerr { color:var(--err); font-size:13px; min-height:18px; margin-bottom:6px; }
+  .userlist { display:flex; flex-direction:column; gap:8px; }
+  .urow { display:flex; align-items:center; gap:10px; background:var(--ivory); border:1px solid rgba(217,164,65,.5);
+    border-radius:12px; padding:10px 12px; }
+  .urow .ue { flex:1; min-width:0; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .badge.admin { background:#f6e0e2; color:#8b1a1a; border:1px solid #e7c3c7; }
+  .badge.user { background:#f4ece0; color:#8a6a3a; border:1px solid #e6d5b8; }
+  .urow .lock { font-size:11px; color:var(--muted); }
+  .urow .rm { background:none; border:0; color:var(--err); font-size:16px; cursor:pointer; padding:4px 8px; box-shadow:none; }
+  .urow .rm::after { content:none; }
+
   .credit { text-align:center; color:var(--muted); font-size:12px; padding:10px 16px 22px; }
   .hidden { display:none !important; }
 
@@ -283,7 +299,7 @@
     </a>
     <a data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.09 3H10a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09A1.65 1.65 0 0 0 21 10.09H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Settings <span class="soon">Soon</span>
+      Settings
     </a>
   </nav>
 
@@ -366,10 +382,27 @@
       </div>
     </section>
     <section class="view" data-view="settings">
-      <div class="placeholder">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg></div>
-        <h3>Settings</h3>
-        <p>Choose the active event workbook, manage volunteers and roles — coming soon.</p>
+      <div id="settingsAdmin" class="hidden">
+        <div class="card">
+          <div class="cap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+            Volunteers &amp; roles
+          </div>
+          <div class="body">
+            <div class="userform">
+              <input id="uEmail" type="email" inputmode="email" placeholder="name@example.com" />
+              <select id="uRole"><option value="user">Volunteer</option><option value="admin">Admin</option></select>
+              <button id="uAdd">Add</button>
+            </div>
+            <div id="uErr" class="uerr"></div>
+            <div id="userList" class="userlist"></div>
+          </div>
+        </div>
+      </div>
+      <div id="settingsLocked" class="placeholder hidden">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3>Admin only</h3>
+        <p>Volunteer &amp; role management is available to admins. Ask an admin to grant you access.</p>
       </div>
     </section>
 
@@ -412,7 +445,7 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v7"; // keep in lock-step with sw.js VERSION and version.json
+const APP_VERSION = "v8"; // keep in lock-step with sw.js VERSION and version.json
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -557,6 +590,54 @@ function renderSheet(q) {
 $("sheetSearch").addEventListener("input", (e) => renderSheet(e.target.value.trim()));
 $("sheetRefresh").onclick = () => loadSheet(true);
 
+// ---- admin: volunteer / role management (Settings) ----
+function openSettings() {
+  const admin = session.role === "admin";
+  $("settingsAdmin").classList.toggle("hidden", !admin);
+  $("settingsLocked").classList.toggle("hidden", admin);
+  if (admin) loadUsers();
+}
+const setUErr = (m) => { $("uErr").textContent = m || ""; };
+async function loadUsers() {
+  const list = $("userList"); list.innerHTML = '<div class="sheet-empty">Loading\u2026</div>'; setUErr("");
+  try {
+    const r = await api("/api/users"); const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Failed");
+    renderUsers(j.users || [], j.me);
+  } catch { list.innerHTML = '<div class="sheet-empty">Could not load users.</div>'; }
+}
+function renderUsers(users, me) {
+  $("userList").innerHTML = users.map((u) => {
+    const roleBadge = u.role === "admin" ? '<span class="badge admin">Admin</span>' : '<span class="badge user">Volunteer</span>';
+    const right = u.source === "config" ? '<span class="lock">built-in</span>'
+      : (u.email === me ? '<span class="lock">you</span>'
+        : '<button class="rm" data-email="' + esc(u.email) + '" title="Remove">\u2715</button>');
+    return '<div class="urow"><span class="ue">' + esc(u.email) + '</span>' + roleBadge + right + '</div>';
+  }).join("") || '<div class="sheet-empty">No volunteers yet \u2014 add one above.</div>';
+}
+async function addUser() {
+  const email = $("uEmail").value.trim(); const role = $("uRole").value;
+  if (!email) return; setUErr("");
+  try {
+    const r = await api("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, role }) });
+    const j = await r.json();
+    if (!r.ok) { setUErr(j.error || "Could not add."); return; }
+    $("uEmail").value = ""; loadUsers();
+  } catch { setUErr("Network error."); }
+}
+async function removeUserEmail(email) {
+  setUErr("");
+  try {
+    const r = await api("/api/users/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+    const j = await r.json();
+    if (!r.ok) { setUErr(j.error || "Could not remove."); return; }
+    loadUsers();
+  } catch { setUErr("Network error."); }
+}
+$("uAdd").onclick = addUser;
+$("uEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") addUser(); });
+$("userList").addEventListener("click", (e) => { const b = e.target.closest(".rm"); if (b) removeUserEmail(b.dataset.email); });
+
 // ---- navigation (tabs + mobile drawer) ----
 const labels = { scan:"Scan & Register", dashboard:"Dashboard", guests:"Guest List", reports:"Reports", settings:"Settings" };
 function showView(name) {
@@ -565,6 +646,7 @@ function showView(name) {
   $("viewPill").textContent = labels[name] || "";
   document.body.classList.remove("nav-open");
   if (name === "guests" && !sheetLoaded) loadSheet(false);
+  if (name === "settings") openSettings();
 }
 document.getElementById("nav").addEventListener("click", (e) => {
   const a = e.target.closest("a[data-view]"); if (!a) return;

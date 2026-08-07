@@ -12,6 +12,7 @@
 //    role; the SPA sends it as a Bearer token on each API call.
 
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
+import { listStoredUsers } from "./userstore.js";
 
 // Provider config. jwks getters are lazy (no network until first verify). Injectable
 // for tests via the `deps` argument to verifyProviderToken.
@@ -49,6 +50,18 @@ export function resolveRole(email, env = process.env) {
   const e = String(email || "").toLowerCase();
   if (listEmails(env.ADMIN_EMAILS).includes(e)) return "admin";
   if (listEmails(env.USER_EMAILS).includes(e)) return "user";
+  return null;
+}
+
+// Role resolution used at login: bootstrap admins from config, then the in-app
+// user store, then any USER_EMAILS fallback. Config admins always win (no lockout).
+export async function resolveRoleMerged(email) {
+  const e = String(email || "").toLowerCase();
+  if (listEmails(process.env.ADMIN_EMAILS).includes(e)) return "admin";
+  const stored = await listStoredUsers();
+  const hit = stored.find((u) => u.email === e);
+  if (hit) return hit.role === "admin" ? "admin" : "user";
+  if (listEmails(process.env.USER_EMAILS).includes(e)) return "user";
   return null;
 }
 
