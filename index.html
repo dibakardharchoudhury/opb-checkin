@@ -125,7 +125,32 @@
   .banner.warn { background:linear-gradient(180deg,#d98c1c,#b9760f); color:#fff; border-color:#94600b; }
   .banner.err { background:linear-gradient(180deg,#c0261f,#9c1a15); color:#fff; border-color:#7a120e; }
   .banner.busy { background:linear-gradient(180deg,#8a4b2f,#6f3a22); color:#fff; border-color:#5a2e1a; }
+  .banner:empty { display:none; }
   .sub { text-align:center; color:var(--muted); font-size:14px; min-height:20px; margin-top:8px; }
+  .sub:empty { display:none; }
+
+  /* ---- dashboard ---- */
+  .dashbar { display:flex; align-items:center; justify-content:space-between; margin:0 2px 12px; }
+  .dashtitle { font-family:"Cormorant Garamond",serif; font-weight:700; color:var(--maroon); font-size:24px; }
+  .dashbar button { flex:0 0 44px; padding:9px; font-size:16px; line-height:1; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+  .kpi { background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:14px; padding:14px 10px; text-align:center; }
+  .kpi b { display:block; font-family:"Cormorant Garamond",serif; font-size:30px; font-weight:700; color:var(--maroon); line-height:1; }
+  .kpi span { display:block; font-size:11.5px; color:var(--muted); margin-top:6px; text-transform:uppercase; letter-spacing:.4px; }
+  .dashcard { background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:16px; padding:14px 16px; margin-bottom:14px; }
+  .dashcap { font-size:11.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--maroon); margin-bottom:12px; }
+  .srow { display:flex; align-items:center; gap:12px; padding:7px 0; }
+  .sname { flex:0 0 44%; font-weight:600; font-size:14px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sbar { flex:1; height:9px; background:rgba(217,164,65,.22); border-radius:6px; overflow:hidden; }
+  .sbar i { display:block; height:100%; background:linear-gradient(90deg,var(--gold),#2e9c54); }
+  .scount { flex:0 0 auto; font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .logrow { display:grid; grid-template-columns:64px 1fr auto; gap:8px 12px; padding:8px 0; border-bottom:1px solid rgba(217,164,65,.2); align-items:baseline; }
+  .logrow:last-child { border-bottom:0; }
+  .logrow .lo { font-weight:700; color:var(--maroon); font-size:13px; }
+  .logrow .ln { font-weight:600; color:var(--ink); font-size:14px; }
+  .logrow .ls { grid-column:2; font-size:11.5px; color:var(--muted); }
+  .logrow .lt { grid-row:1 / span 2; align-self:center; font-size:12px; color:var(--muted); white-space:nowrap; }
+  @media (max-width:560px) { .kpis { grid-template-columns:repeat(2,1fr); } }
 
   .row { display:flex; gap:10px; margin-top:14px; }
   .row > * { flex:1; }
@@ -342,15 +367,19 @@
     </a>
     <a data-view="dashboard">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-      Dashboard <span class="soon">Soon</span>
+      Dashboard
     </a>
     <a data-view="guests">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Guest List
     </a>
-    <a data-view="reports">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
-      Reports <span class="soon">Soon</span>
+    <a data-view="parking">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
+      Parking <span class="soon">Soon</span>
+    </a>
+    <a data-view="food">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg>
+      Food Stall-Dues <span class="soon">Soon</span>
     </a>
     <a data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.09 3H10a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09A1.65 1.65 0 0 0 21 10.09H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -423,17 +452,20 @@
 
     <!-- ============ PLACEHOLDER VIEWS (future features) ============ -->
     <section class="view" data-view="dashboard">
-      <div class="placeholder">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></div>
-        <h3>Live Dashboard</h3>
-        <p>Real-time check-in counts by session (Lunch / Dinner), day and gate — coming soon.</p>
+      <div class="dashbar">
+        <div class="dashtitle">Event overview</div>
+        <button id="dashRefresh" class="ghost" title="Refresh" aria-label="Refresh">↻</button>
       </div>
+      <div class="kpis" id="dashKpis"></div>
+      <div class="dashcard"><div class="dashcap">Check-ins by session</div><div id="dashSessions"></div></div>
+      <div class="dashcard"><div class="dashcap">Recent check-ins</div><div id="dashLog"></div></div>
     </section>
     <section class="view" data-view="guests">
       <div class="sheettabs-label">Worksheet</div>
       <div class="sheettabs" id="sheetTabs"><span class="hint">Loading worksheets…</span></div>
       <div class="sheetbar">
         <input id="sheetSearch" placeholder="Search name or order number" />
+        <button id="sheetExport" class="ghost" title="Download CSV" aria-label="Download CSV">⤓</button>
         <button id="sheetRefresh" class="ghost" title="Refresh from Excel" aria-label="Refresh">↻</button>
       </div>
       <div id="sheetMeta" class="sheetmeta"></div>
@@ -444,11 +476,18 @@
         </table>
       </div>
     </section>
-    <section class="view" data-view="reports">
+    <section class="view" data-view="parking">
       <div class="placeholder">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
-        <h3>Reports</h3>
-        <p>Attendance summaries and exports for the committee — coming soon.</p>
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg></div>
+        <h3>Parking</h3>
+        <p>Log and manage parking entries — volunteers will be able to add cars here. Coming soon.</p>
+      </div>
+    </section>
+    <section class="view" data-view="food">
+      <div class="placeholder">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div>
+        <h3>Food Stall-Dues</h3>
+        <p>Track food stall dues and add entries — coming soon.</p>
       </div>
     </section>
     <section class="view" data-view="settings">
@@ -537,8 +576,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.26"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T12:55:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.27"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T13:05:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -842,6 +881,51 @@ $("gtable").querySelector("thead").addEventListener("click", (e) => {
   renderSheet($("sheetSearch").value.trim());
 });
 
+// Plain-text cell value (for CSV export), mirroring the display formatting.
+function cellText(v, type) {
+  if (v == null) v = "";
+  if (type === "status") return String(v).trim().toUpperCase() === "REGISTERED" ? "Registered" : (String(v).trim() ? "Pending" : "");
+  if (type === "dt") return String(v).replace("T", " ").slice(0, 16);
+  if (type === "date") { const s = String(v); return /^\d+(\.\d+)?$/.test(s) ? serialToYMD(Number(s)) : s.slice(0, 10); }
+  return String(v);
+}
+function exportCsv() {
+  const sheet = currentSheet(); if (!sheet) return;
+  const cols = colsFor(sheet);
+  const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  const lines = [cols.map((c) => q(c.h)).join(",")];
+  for (const r of sheet.rows) lines.push(cols.map((c) => q(cellText(c.get(r), c.type))).join(","));
+  const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = (activeSheet || "guests") + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+$("sheetExport").onclick = exportCsv;
+
+// ---- dashboard (event-wide analytics) ----
+function kpi(v, l) { return '<div class="kpi"><b>' + esc(String(v)) + '</b><span>' + esc(l) + "</span></div>"; }
+async function loadDashboard(force) {
+  $("dashKpis").innerHTML = '<div class="hint">Loading\u2026</div>'; $("dashSessions").innerHTML = ""; $("dashLog").innerHTML = "";
+  try {
+    const r = await api("/api/summary" + (force ? "?refresh=1" : "")); const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Failed");
+    renderDashboard(j);
+  } catch { $("dashKpis").innerHTML = '<div class="sheet-empty">Could not load the dashboard.</div>'; }
+}
+function renderDashboard(j) {
+  const t = j.totals || { total: 0, registered: 0 };
+  const pct = t.total ? Math.round((t.registered / t.total) * 100) : 0;
+  $("dashKpis").innerHTML = kpi(t.registered, "Checked in") + kpi(t.total, "Total passes") + kpi(pct + "%", "Attendance") + kpi((j.sessions || []).length, "Sessions");
+  $("dashSessions").innerHTML = (j.sessions || []).length ? j.sessions.map((s) => {
+    const p = s.total ? Math.round((s.registered / s.total) * 100) : 0;
+    return '<div class="srow"><div class="sname">' + esc(s.name) + '</div><div class="sbar"><i style="width:' + p + '%"></i></div><div class="scount">' + s.registered + " / " + s.total + "</div></div>";
+  }).join("") : '<div class="sheet-empty">No check-in sheets found in this workbook.</div>';
+  $("dashLog").innerHTML = (j.recent || []).length ? j.recent.map((r) =>
+    '<div class="logrow"><span class="lo">#' + esc(r.order) + '</span><span class="ln">' + esc(r.name || "\u2014") + '</span><span class="ls">' + esc(r.session) + '</span><span class="lt">' + esc(String(r.time || "").replace("T", " ").slice(0, 16)) + "</span></div>"
+  ).join("") : '<div class="sheet-empty">No check-ins recorded yet.</div>';
+}
+$("dashRefresh").onclick = () => loadDashboard(true);
+
 // ---- admin: volunteer / role management (Settings) ----
 function openSettings() {
   const admin = isAdmin();
@@ -909,7 +993,7 @@ $("uEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") addUser(
 $("userList").addEventListener("click", (e) => { const b = e.target.closest(".rm"); if (b) removeUserEmail(b.dataset.email); });
 
 // ---- navigation (tabs + mobile drawer) ----
-const labels = { scan:"Scan & Register", dashboard:"Dashboard", guests:"Guest List", reports:"Reports", settings:"Settings" };
+const labels = { scan:"Scan & Register", dashboard:"Dashboard", guests:"Guest List", parking:"Parking", food:"Food Stall-Dues", settings:"Settings" };
 function showView(name) {
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === name));
   document.querySelectorAll("main .view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
@@ -917,6 +1001,7 @@ function showView(name) {
   document.body.classList.remove("nav-open");
   document.body.classList.toggle("view-guests", name === "guests");
   if (name === "guests") openGuests();
+  if (name === "dashboard") loadDashboard(false);
   if (name === "settings") openSettings();
 }
 document.getElementById("nav").addEventListener("click", (e) => {

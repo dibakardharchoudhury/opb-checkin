@@ -286,6 +286,64 @@ app.get("/api/sheet", requireAuth(), async (req, res) => {
   }
 });
 
+// GET /api/summary -> event-wide analytics: per-session counts + a recent check-in log.
+// Aggregates every worksheet that looks like a check-in sheet (has Status + order cols).
+function colFinder(headers) {
+  const low = headers.map((h) => String(h ?? "").trim().toLowerCase());
+  const find = (cands) => { for (const c of cands) { const i = low.indexOf(c); if (i !== -1) return i; } return -1; };
+  return {
+    order: find(["registrationid", "order number", "ordernumber", "order"]),
+    status: find(["status"]), dt: find(["datetime", "date time"]),
+    first: find(["first name", "firstname"]), last: find(["last name", "lastname"]),
+  };
+}
+let summaryCache = { key: "", at: 0, data: null };
+app.get("/api/summary", requireAuth(), async (req, res) => {
+  const fresh = req.query.refresh === "1";
+  let token, base, session;
+  try {
+    const { loc, name } = await wbContext();
+    const key = loc || "__env__";
+    if (!fresh && summaryCache.data && summaryCache.key === key && Date.now() - summaryCache.at < 30_000) return res.json(summaryCache.data);
+    token = await getAccessToken();
+    base = workbookBase(loc);
+    session = await openSession(token, base);
+    const tabs = await listWorksheets(token, base, session);
+    const sessions = []; const recent = []; let total = 0, registered = 0;
+    for (const t of tabs) {
+      const table = await firstTableName(token, base, session, t);
+      if (!table) continue;
+      const { headers, rows } = await readTable(token, base, session, table);
+      const c = colFinder(headers);
+      if (c.status === -1 || c.order === -1) continue; // only check-in style sheets
+      let tot = 0, reg = 0;
+      for (const r of rows) {
+        const v = r.values;
+        if (String(v[c.order] ?? "").trim() === "") continue; // skip empty pre-numbered slots
+        tot++;
+        if (String(v[c.status] ?? "").trim().toUpperCase() === "REGISTERED") {
+          reg++;
+          recent.push({
+            session: t, order: String(v[c.order] ?? ""),
+            name: `${c.first !== -1 ? String(v[c.first] ?? "") : ""} ${c.last !== -1 ? String(v[c.last] ?? "") : ""}`.trim(),
+            time: c.dt !== -1 ? String(v[c.dt] ?? "") : "",
+          });
+        }
+      }
+      if (tot > 0) { sessions.push({ name: t, total: tot, registered: reg }); total += tot; registered += reg; }
+    }
+    recent.sort((a, b) => String(b.time).localeCompare(String(a.time)));
+    const data = { workbook: name, sessions, totals: { total, registered }, recent: recent.slice(0, 40), updatedAt: new Date().toISOString() };
+    summaryCache = { key, at: Date.now(), data };
+    res.json(data);
+  } catch (e) {
+    console.error("summary failed:", e?.message || e);
+    res.status(500).json({ error: "Could not build the dashboard.", detail: e?.message || String(e) });
+  } finally {
+    if (token && base && session) await closeSession(token, base, session);
+  }
+});
+
 const PORT = process.env.PORT || 8080;
 if (process.env.PORT !== "0") {
   app.listen(PORT, () => console.log(`OPB check-in backend on :${PORT} (tz=${TZ}, table=${TABLE_NAME})`));
