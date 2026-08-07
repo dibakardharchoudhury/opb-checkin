@@ -1,9 +1,9 @@
-# Zip-deploy the backend to Azure App Service — same approach as NorkappTrip.
+# Zip-deploy the backend to Azure App Service (tenant ad340c84).
 #   az login --tenant ad340c84-1886-4202-a483-2da2cb9168eb
 #   ./push.ps1
 param(
-  [string]$Subscription = "ME-MngEnvMCAP677316-didharch-1",
-  [string]$Rg  = "rg-agentmcp",          # reuse NorkappTrip resource group
+  [string]$Subscription = "ME-MngEnvMCAP218279-didharch-2",   # tenant ad340c84
+  [string]$Rg  = "rg-opb-checkin",
   [string]$App = "opb-checkin-api"
 )
 $ErrorActionPreference = "Continue"
