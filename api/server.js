@@ -24,6 +24,14 @@ import { getConfig, setConfig } from "./configstore.js";
 const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
 
+// Friendly workbook (spreadsheet) name derived from the configured locator.
+function workbookName() {
+  const loc = process.env.GRAPH_WORKBOOK || "";
+  const raw = loc.startsWith("path:") ? loc.slice(5) : loc;
+  const base = raw.split("/").filter(Boolean).pop() || "";
+  return base.replace(/\.xlsx$/i, "") || "Workbook";
+}
+
 const ALLOWED = (process.env.ALLOWED_ORIGINS || "*")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -152,7 +160,7 @@ app.get("/api/tabs", requireAuth(), async (req, res) => {
     base = workbookBase();
     session = await openSession(token, base);
     const tabs = await listWorksheets(token, base, session);
-    const data = { tabs, updatedAt: new Date().toISOString() };
+    const data = { tabs, workbook: workbookName(), updatedAt: new Date().toISOString() };
     tabsCache = { at: Date.now(), data };
     res.json(data);
   } catch (e) {
