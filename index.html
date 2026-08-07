@@ -181,9 +181,9 @@
   .gtable tbody tr:nth-child(even) td { background:rgba(217,164,65,.06); }
   .gtable tbody tr:hover td { background:rgba(217,164,65,.16); }
   .gtable td.nm { font-weight:600; color:var(--ink); }
-  .gtable td.item { white-space:normal; line-height:1.4; min-width:240px; width:45%; }
-  .gtable td.qty { text-align:center; color:var(--muted); }
-  .gtable td.dtc { color:var(--muted); font-size:12.5px; }
+  .gtable td.c-num, .gtable th.c-num { text-align:right; }
+  .gtable td.c-text { white-space:normal; line-height:1.4; }
+  .gtable td.c-dt { color:var(--muted); font-size:12.5px; }
   .badge { font-size:11px; font-weight:600; padding:5px 10px; border-radius:20px; white-space:nowrap; display:inline-block; }
   .badge.reg { background:#e3f3e9; color:#1f7a4d; border:1px solid #bfe3cd; }
   .badge.pen { background:#f4ece0; color:#8a6a3a; border:1px solid #e6d5b8; }
@@ -417,14 +417,7 @@
       <div id="sheetMeta" class="sheetmeta"></div>
       <div class="tablewrap">
         <table class="gtable" id="gtable">
-          <thead><tr>
-            <th data-k="name">Name</th>
-            <th data-k="order">Order&nbsp;#</th>
-            <th data-k="item">Item</th>
-            <th data-k="qty">Qty</th>
-            <th data-k="reg">Status</th>
-            <th data-k="dt">Checked in</th>
-          </tr></thead>
+          <thead id="gthead"></thead>
           <tbody id="gtbody"></tbody>
         </table>
       </div>
@@ -500,8 +493,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.7"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 12:14 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v1.8"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 12:22 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -597,12 +590,10 @@ $("manualBtn").onclick = () => { const v = $("manual").value.trim(); if (v) { su
 $("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("manualBtn").click(); });
 
 // ---- worksheet tabs (event sessions) + live guest list ----
-const SHEETCOLS = {
-  order:["registrationid","order number","ordernumber","order"],
-  first:["first name","firstname"], last:["last name","lastname"],
-  item:["item","pass type","passtype"], qty:["quantity","qty"],
-  status:["status"], dt:["datetime","date time"],
-};
+// The table renders dynamically from each worksheet's own headers, so different
+// sheet schemas (event tabs, Parking, Donations, …) all display correctly.
+const ORDER_COLS = ["registrationid", "order number", "ordernumber", "order"];
+const HIDDEN_COLS = ["uniquekey", "appkey"]; // internal keys — never shown
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 function idxOf(headers, cands) { const l = headers.map((h) => String(h ?? "").trim().toLowerCase()); for (const c of cands) { const i = l.indexOf(c); if (i !== -1) return i; } return -1; }
 
@@ -611,7 +602,7 @@ function idxOf(headers, cands) { const l = headers.map((h) => String(h ?? "").tr
 let allTabs = [], tabsFetched = false;
 const sheetStore = {};                 // worksheet name -> loaded { name, headers, rows, count }
 let activeSheet = "", sheetsStale = false;
-let sheetCols = null, gRows = [], gSort = { key: "order", dir: 1 };
+let gSort = { key: null, dir: 1 };     // key = column index in the active sheet
 
 async function loadTabs(force) {
   if (tabsFetched && !force) return;
@@ -651,7 +642,7 @@ $("scanSheet").addEventListener("change", (e) => {
 
 async function selectSheet(name, force) {
   activeSheet = name; renderTabBar();
-  if (sheetStore[name] && !force) { showActiveSheet(); return; }
+  if (sheetStore[name] && !force) { renderSheet($("sheetSearch").value.trim()); return; }
   $("sheetMeta").textContent = "Loading " + name + "\u2026"; $("gtbody").innerHTML = "";
   try {
     const r = await api("/api/sheet?tabs=" + encodeURIComponent(name) + (force ? "&refresh=1" : ""));
@@ -660,65 +651,78 @@ async function selectSheet(name, force) {
     const sheet = (j.sheets || [])[0];
     if (sheet) {
       // Keep only real entries: a non-empty row that carries an order / registration id.
-      const orderIdx = idxOf(sheet.headers, SHEETCOLS.order);
+      const orderIdx = idxOf(sheet.headers, ORDER_COLS);
       sheet.rows = (sheet.rows || []).filter((row) =>
         row.some((v) => String(v ?? "").trim() !== "") &&
         (orderIdx === -1 || String(row[orderIdx] ?? "").trim() !== ""));
       sheet.count = sheet.rows.length;
       sheetStore[name] = sheet;
     }
-    sheetsStale = false; renderTabBar(); showActiveSheet();
+    sheetsStale = false; renderTabBar(); renderSheet($("sheetSearch").value.trim());
   } catch (e) {
     $("sheetMeta").textContent = "";
-    $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Could not load the sheet.<br>' + esc(e.message || "") + "</td></tr>";
+    $("gtbody").innerHTML = '<tr><td class="sheet-empty">Could not load the sheet.<br>' + esc(e.message || "") + "</td></tr>";
   }
 }
 function currentSheet() { return sheetStore[activeSheet] || null; }
 
-function buildRows() {
-  const sheet = currentSheet(); if (!sheet) { gRows = []; return; }
-  sheetCols = {}; for (const k in SHEETCOLS) sheetCols[k] = idxOf(sheet.headers, SHEETCOLS[k]);
-  const c = sheetCols, get = (row, i) => (i === -1 ? "" : row[i]);
-  gRows = sheet.rows.map((row) => {
-    const name = (get(row, c.first) + " " + get(row, c.last)).trim();
-    const order = String(get(row, c.order) ?? "");
-    const reg = String(get(row, c.status) ?? "").trim().toUpperCase() === "REGISTERED";
-    const item = String(get(row, c.item) ?? "");
-    const qty = String(get(row, c.qty) ?? "");
-    const dt = String(get(row, c.dt) ?? "").replace("T", " ").slice(0, 16);
-    return { name, order, item, qty, reg, dt };
-  });
+function headerType(h) {
+  const l = String(h || "").trim().toLowerCase();
+  if (l === "status") return "status";
+  if (l === "datetime" || l === "date time") return "dt";
+  if (l === "date") return "date";
+  if (l === "quantity" || l === "qty") return "num";
+  return "text";
 }
-function showActiveSheet() { buildRows(); renderSheet($("sheetSearch").value.trim()); }
+function serialToYMD(n) {
+  const ms = Date.UTC(1899, 11, 30) + Math.round(n) * 86400000, d = new Date(ms);
+  return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+}
+function fmtCell(v, type) {
+  if (v == null) v = "";
+  if (type === "status") { const reg = String(v).trim().toUpperCase() === "REGISTERED"; return '<span class="badge ' + (reg ? "reg" : "pen") + '">' + (reg ? "Registered" : "Pending") + "</span>"; }
+  if (type === "dt") return esc(String(v).replace("T", " ").slice(0, 16));
+  if (type === "date") { const s = String(v); return esc(/^\d+(\.\d+)?$/.test(s) ? serialToYMD(Number(s)) : s.slice(0, 10)); }
+  return esc(String(v));
+}
+// Visible columns for the active sheet: its real headers minus blank + internal-key columns.
+function colsFor(sheet) {
+  return sheet.headers.map((h, i) => ({ i, h: String(h ?? ""), type: headerType(h) }))
+    .filter((c) => c.h.trim() !== "" && !HIDDEN_COLS.includes(c.h.trim().toLowerCase()));
+}
 
 function renderSheet(q) {
   const sheet = currentSheet();
-  if (!sheet) { $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Choose a worksheet above to view its guests.</td></tr>'; $("sheetMeta").textContent = ""; return; }
-  const ql = (q || "").toLowerCase();
-  let rows = gRows.filter((r) => !ql || r.name.toLowerCase().includes(ql) || r.order.toLowerCase().includes(ql));
-  const { key, dir } = gSort;
-  rows.sort((a, b) => {
-    let av = a[key], bv = b[key];
-    if (key === "order" || key === "qty") { const na = Number(av), nb = Number(bv); if (!isNaN(na) && !isNaN(nb)) { av = na; bv = nb; } else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); } }
-    else if (key === "reg") { av = a.reg ? 1 : 0; bv = b.reg ? 1 : 0; }
-    else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); }
+  const thead = $("gthead"), tbody = $("gtbody"), meta = $("sheetMeta");
+  if (!sheet) { thead.innerHTML = ""; tbody.innerHTML = '<tr><td class="sheet-empty">Choose a worksheet above to view its rows.</td></tr>'; meta.textContent = ""; return; }
+  const cols = colsFor(sheet);
+  if (gSort.key == null || !cols.some((c) => c.i === gSort.key)) {
+    const ord = cols.find((c) => ORDER_COLS.includes(c.h.trim().toLowerCase()));
+    gSort = { key: ord ? ord.i : (cols[0] ? cols[0].i : 0), dir: 1 };
+  }
+  const k = gSort.key, dir = gSort.dir, ql = (q || "").toLowerCase();
+  let rows = sheet.rows.filter((r) => !ql || r.some((v) => String(v ?? "").toLowerCase().includes(ql)));
+  rows = rows.slice().sort((a, b) => {
+    let av = a[k], bv = b[k]; const na = Number(av), nb = Number(bv);
+    if (String(av ?? "") !== "" && String(bv ?? "") !== "" && !isNaN(na) && !isNaN(nb)) { av = na; bv = nb; }
+    else { av = String(av ?? "").toLowerCase(); bv = String(bv ?? "").toLowerCase(); }
     return av < bv ? -dir : av > bv ? dir : 0;
   });
-  $("gtbody").innerHTML = rows.length ? rows.map((r) =>
-    '<tr><td class="nm">' + esc(r.name || "\u2014") + '</td><td>#' + esc(r.order) + '</td>' +
-    '<td class="item">' + esc(r.item) + '</td><td class="qty">' + esc(r.qty) + '</td>' +
-    '<td><span class="badge ' + (r.reg ? "reg" : "pen") + '">' + (r.reg ? "Registered" : "Pending") + '</span></td>' +
-    '<td class="dtc">' + esc(r.dt) + '</td></tr>'
-  ).join("") : '<tr><td colspan="6" class="sheet-empty">No matching guests.</td></tr>';
-  document.querySelectorAll("#gtable thead th").forEach((th) => { th.dataset.dir = th.dataset.k === key ? (dir > 0 ? "asc" : "desc") : ""; });
-  const regd = gRows.filter((r) => r.reg).length;
-  $("sheetMeta").innerHTML = "<span>" + esc(activeSheet) + " \u00b7 " + sheet.count + " rows \u00b7 " + regd + " checked in</span>";
+  thead.innerHTML = "<tr>" + cols.map((c) =>
+    '<th data-col="' + c.i + '"' + (c.i === k ? ' data-dir="' + (dir > 0 ? "asc" : "desc") + '"' : "") + ' class="c-' + c.type + '">' + esc(c.h) + "</th>").join("") + "</tr>";
+  tbody.innerHTML = rows.length
+    ? rows.map((r) => "<tr>" + cols.map((c) => '<td class="c-' + c.type + '">' + fmtCell(r[c.i], c.type) + "</td>").join("") + "</tr>").join("")
+    : '<tr><td class="sheet-empty" colspan="' + cols.length + '">No matching rows.</td></tr>';
+  const statusCol = cols.find((c) => c.type === "status");
+  let summary = esc(activeSheet) + " \u00b7 " + sheet.count + " rows";
+  if (statusCol) { const regd = sheet.rows.filter((r) => String(r[statusCol.i] ?? "").trim().toUpperCase() === "REGISTERED").length; summary += " \u00b7 " + regd + " checked in"; }
+  meta.innerHTML = "<span>" + summary + "</span>";
 }
 $("sheetSearch").addEventListener("input", (e) => renderSheet(e.target.value.trim()));
 $("sheetRefresh").onclick = () => { if (activeSheet) selectSheet(activeSheet, true); };
 $("gtable").querySelector("thead").addEventListener("click", (e) => {
-  const th = e.target.closest("th[data-k]"); if (!th) return;
-  const k = th.dataset.k;
+  const th = e.target.closest("th[data-col]"); if (!th) return;
+  const k = Number(th.dataset.col);
   if (gSort.key === k) gSort.dir *= -1; else gSort = { key: k, dir: 1 };
   renderSheet($("sheetSearch").value.trim());
 });
