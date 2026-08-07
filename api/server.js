@@ -326,7 +326,13 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     token = await getAccessToken();
     base = workbookBase(loc);
     session = await openSession(token, base);
-    const tabs = await listWorksheets(token, base, session);
+    // Scope the dashboard to the admin-designated event/guest worksheets so master or
+    // source sheets (e.g. "App_Source") aren't mistaken for event sessions. If none are
+    // configured yet, fall back to every check-in-style sheet.
+    const cfg = await getConfig();
+    const allow = new Set((cfg.guestSheets || []).map((s) => String(s)));
+    const allTabs = await listWorksheets(token, base, session);
+    const tabs = allow.size ? allTabs.filter((t) => allow.has(t)) : allTabs;
     const sessions = []; const recent = []; const passCounts = {}; let total = 0, registered = 0;
     for (const t of tabs) {
       const table = await firstTableName(token, base, session, t);

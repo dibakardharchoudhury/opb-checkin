@@ -494,7 +494,7 @@
         <div class="dashcard"><div class="dashcap">Attendance by day &amp; session</div><div class="chartbox"><canvas id="chartDay"></canvas></div></div>
         <div class="dashcard"><div class="dashcap">By pass type</div><div class="chartbox"><canvas id="chartPass"></canvas></div></div>
       </div>
-      <div class="dashcard"><div class="dashcap">Check-ins by session</div><div id="dashSessions"></div></div>
+      <div class="dashcard"><div class="dashcap">Check-ins by event session</div><div id="dashSessions"></div></div>
       <div class="dashcard">
         <div class="dashcap">Recent check-ins <span id="dashLogNote" class="dashcap-note"></span></div>
         <div id="dashLog"></div>
@@ -617,8 +617,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.31"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T15:05:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.32"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T15:25:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
