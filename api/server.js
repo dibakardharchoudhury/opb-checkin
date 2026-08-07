@@ -295,7 +295,18 @@ function colFinder(headers) {
     order: find(["registrationid", "order number", "ordernumber", "order"]),
     status: find(["status"]), dt: find(["datetime", "date time"]),
     first: find(["first name", "firstname"]), last: find(["last name", "lastname"]),
+    item: find(["item", "pass type", "passtype"]),
   };
+}
+// Bucket a free-text item/pass into a tidy category for aggregation.
+function passCategory(item) {
+  const s = String(item ?? "").trim().toLowerCase();
+  if (!s) return "Unspecified";
+  if (/season/.test(s)) return "Season pass";
+  if (/free/.test(s)) return "Free entry";
+  if (/child|kid/.test(s)) return "Child";
+  if (/entry|lunch|dinner|meal/.test(s)) return "Entry pass";
+  return "Other";
 }
 let summaryCache = { key: "", at: 0, data: null };
 app.get("/api/summary", requireAuth(), async (req, res) => {
@@ -309,7 +320,7 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     base = workbookBase(loc);
     session = await openSession(token, base);
     const tabs = await listWorksheets(token, base, session);
-    const sessions = []; const recent = []; let total = 0, registered = 0;
+    const sessions = []; const recent = []; const passCounts = {}; let total = 0, registered = 0;
     for (const t of tabs) {
       const table = await firstTableName(token, base, session, t);
       if (!table) continue;
@@ -323,6 +334,8 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
         tot++;
         if (String(v[c.status] ?? "").trim().toUpperCase() === "REGISTERED") {
           reg++;
+          const cat = passCategory(c.item !== -1 ? v[c.item] : "");
+          passCounts[cat] = (passCounts[cat] || 0) + 1;
           recent.push({
             session: t, order: String(v[c.order] ?? ""),
             name: `${c.first !== -1 ? String(v[c.first] ?? "") : ""} ${c.last !== -1 ? String(v[c.last] ?? "") : ""}`.trim(),
@@ -333,7 +346,8 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
       if (tot > 0) { sessions.push({ name: t, total: tot, registered: reg }); total += tot; registered += reg; }
     }
     recent.sort((a, b) => String(b.time).localeCompare(String(a.time)));
-    const data = { workbook: name, sessions, totals: { total, registered }, recent: recent.slice(0, 40), updatedAt: new Date().toISOString() };
+    const byPass = Object.entries(passCounts).map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count);
+    const data = { workbook: name, sessions, byPass, totals: { total, registered }, recent: recent.slice(0, 40), updatedAt: new Date().toISOString() };
     summaryCache = { key, at: Date.now(), data };
     res.json(data);
   } catch (e) {

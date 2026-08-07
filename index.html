@@ -138,6 +138,10 @@
   .kpi b { display:block; font-family:"Cormorant Garamond",serif; font-size:30px; font-weight:700; color:var(--maroon); line-height:1; }
   .kpi span { display:block; font-size:11.5px; color:var(--muted); margin-top:6px; text-transform:uppercase; letter-spacing:.4px; }
   .dashcard { background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:16px; padding:14px 16px; margin-bottom:14px; }
+  .dashgrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:0; }
+  .dashgrid .dashcard { margin-bottom:14px; }
+  .chartbox { position:relative; height:270px; }
+  @media (max-width:760px) { .dashgrid { grid-template-columns:1fr; } }
   .dashcap { font-size:11.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--maroon); margin-bottom:12px; }
   .srow { display:flex; align-items:center; gap:12px; padding:7px 0; }
   .sname { flex:0 0 44%; font-weight:600; font-size:14px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -457,6 +461,10 @@
         <button id="dashRefresh" class="ghost" title="Refresh" aria-label="Refresh">↻</button>
       </div>
       <div class="kpis" id="dashKpis"></div>
+      <div class="dashgrid">
+        <div class="dashcard"><div class="dashcap">Attendance by day &amp; session</div><div class="chartbox"><canvas id="chartDay"></canvas></div></div>
+        <div class="dashcard"><div class="dashcap">By pass type</div><div class="chartbox"><canvas id="chartPass"></canvas></div></div>
+      </div>
       <div class="dashcard"><div class="dashcap">Check-ins by session</div><div id="dashSessions"></div></div>
       <div class="dashcard"><div class="dashcap">Recent check-ins</div><div id="dashLog"></div></div>
     </section>
@@ -576,8 +584,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.27"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T13:05:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.28"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T13:20:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -902,13 +910,25 @@ function exportCsv() {
 }
 $("sheetExport").onclick = exportCsv;
 
-// ---- dashboard (event-wide analytics) ----
+// ---- dashboard (event-wide analytics + interactive charts) ----
+let _chartDay = null, _chartPass = null;
+const DAY_ORDER = ["Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"];
+const MEAL_ORDER = ["Breakfast", "Lunch", "Dinner", "Free Entry"];
+function parseSession(nm) {
+  const s = String(nm || "").trim();
+  const m = s.match(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i);
+  const day = m ? m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() : "Other";
+  const meal = (m ? s.slice(m[1].length).trim() : s) || "Session";
+  return { day, meal };
+}
+function ensureChart() { return window.Chart ? Promise.resolve() : loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js").catch(() => {}); }
 function kpi(v, l) { return '<div class="kpi"><b>' + esc(String(v)) + '</b><span>' + esc(l) + "</span></div>"; }
 async function loadDashboard(force) {
   $("dashKpis").innerHTML = '<div class="hint">Loading\u2026</div>'; $("dashSessions").innerHTML = ""; $("dashLog").innerHTML = "";
   try {
     const r = await api("/api/summary" + (force ? "?refresh=1" : "")); const j = await r.json();
     if (!r.ok) throw new Error(j.error || "Failed");
+    await ensureChart();
     renderDashboard(j);
   } catch { $("dashKpis").innerHTML = '<div class="sheet-empty">Could not load the dashboard.</div>'; }
 }
@@ -916,6 +936,8 @@ function renderDashboard(j) {
   const t = j.totals || { total: 0, registered: 0 };
   const pct = t.total ? Math.round((t.registered / t.total) * 100) : 0;
   $("dashKpis").innerHTML = kpi(t.registered, "Checked in") + kpi(t.total, "Total passes") + kpi(pct + "%", "Attendance") + kpi((j.sessions || []).length, "Sessions");
+  renderDayChart(j.sessions || []);
+  renderPassChart(j.byPass || []);
   $("dashSessions").innerHTML = (j.sessions || []).length ? j.sessions.map((s) => {
     const p = s.total ? Math.round((s.registered / s.total) * 100) : 0;
     return '<div class="srow"><div class="sname">' + esc(s.name) + '</div><div class="sbar"><i style="width:' + p + '%"></i></div><div class="scount">' + s.registered + " / " + s.total + "</div></div>";
@@ -923,6 +945,33 @@ function renderDashboard(j) {
   $("dashLog").innerHTML = (j.recent || []).length ? j.recent.map((r) =>
     '<div class="logrow"><span class="lo">#' + esc(r.order) + '</span><span class="ln">' + esc(r.name || "\u2014") + '</span><span class="ls">' + esc(r.session) + '</span><span class="lt">' + esc(String(r.time || "").replace("T", " ").slice(0, 16)) + "</span></div>"
   ).join("") : '<div class="sheet-empty">No check-ins recorded yet.</div>';
+}
+function renderDayChart(sessions) {
+  const cv = $("chartDay"); if (!cv || !window.Chart) return;
+  const days = [], meals = [], cell = {};
+  sessions.forEach((s) => {
+    const { day, meal } = parseSession(s.name);
+    if (!days.includes(day)) days.push(day);
+    if (!meals.includes(meal)) meals.push(meal);
+    cell[day + "|" + meal] = (cell[day + "|" + meal] || 0) + s.registered;
+  });
+  days.sort((a, b) => (DAY_ORDER.indexOf(a) + 1 || 99) - (DAY_ORDER.indexOf(b) + 1 || 99));
+  meals.sort((a, b) => (MEAL_ORDER.indexOf(a) + 1 || 50) - (MEAL_ORDER.indexOf(b) + 1 || 50));
+  const mc = { Lunch: "#d9a441", Dinner: "#7a1220", "Free Entry": "#2e9c54", Breakfast: "#e07a3a" };
+  const pal = ["#7a1220", "#d9a441", "#2e9c54", "#e07a3a", "#3b7dd8", "#8a4b2f"];
+  const ds = meals.map((m, i) => ({ label: m, data: days.map((d) => cell[d + "|" + m] || 0), backgroundColor: mc[m] || pal[i % pal.length], borderRadius: 6, maxBarThickness: 46 }));
+  if (_chartDay) _chartDay.destroy();
+  _chartDay = new Chart(cv, { type: "bar", data: { labels: days, datasets: ds },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 12 } } } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } }, x: { grid: { display: false } } } } });
+}
+function renderPassChart(byPass) {
+  const cv = $("chartPass"); if (!cv || !window.Chart) return;
+  const pal = ["#7a1220", "#d9a441", "#2e9c54", "#e07a3a", "#3b7dd8", "#8a4b2f", "#b03a5b"];
+  if (_chartPass) _chartPass.destroy();
+  if (!byPass.length) return;
+  _chartPass = new Chart(cv, { type: "doughnut", data: { labels: byPass.map((p) => p.type), datasets: [{ data: byPass.map((p) => p.count), backgroundColor: byPass.map((_, i) => pal[i % pal.length]), borderColor: "#fff", borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: "58%", plugins: { legend: { position: "right", labels: { boxWidth: 12, font: { size: 12 } } } } } });
 }
 $("dashRefresh").onclick = () => loadDashboard(true);
 
