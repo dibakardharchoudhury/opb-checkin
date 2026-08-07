@@ -143,6 +143,9 @@
   .chartbox { position:relative; height:270px; }
   @media (max-width:760px) { .dashgrid { grid-template-columns:1fr; } }
   .dashcap { font-size:11.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--maroon); margin-bottom:12px; }
+  .dashcap-note { font-weight:600; letter-spacing:0; text-transform:none; color:var(--muted); font-size:11.5px; }
+  .dashmore-wrap { text-align:center; margin-top:12px; }
+  .dashmore-wrap .ghost.hidden { display:none; }
   .srow { display:flex; align-items:center; gap:12px; padding:7px 0; }
   .sname { flex:0 0 44%; font-weight:600; font-size:14px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sbar { flex:1; height:9px; background:rgba(217,164,65,.22); border-radius:6px; overflow:hidden; }
@@ -466,7 +469,11 @@
         <div class="dashcard"><div class="dashcap">By pass type</div><div class="chartbox"><canvas id="chartPass"></canvas></div></div>
       </div>
       <div class="dashcard"><div class="dashcap">Check-ins by session</div><div id="dashSessions"></div></div>
-      <div class="dashcard"><div class="dashcap">Recent check-ins</div><div id="dashLog"></div></div>
+      <div class="dashcard">
+        <div class="dashcap">Recent check-ins <span id="dashLogNote" class="dashcap-note"></span></div>
+        <div id="dashLog"></div>
+        <div class="dashmore-wrap"><button id="dashMore" class="ghost hidden">Load more</button></div>
+      </div>
     </section>
     <section class="view" data-view="guests">
       <div class="sheettabs-label">Worksheet</div>
@@ -584,8 +591,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.29"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T14:20:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.30"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T14:45:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -942,10 +949,33 @@ function renderDashboard(j) {
     const p = s.total ? Math.round((s.registered / s.total) * 100) : 0;
     return '<div class="srow"><div class="sname">' + esc(s.name) + '</div><div class="sbar"><i style="width:' + p + '%"></i></div><div class="scount">' + s.registered + " / " + s.total + "</div></div>";
   }).join("") : '<div class="sheet-empty">No check-in sheets found in this workbook.</div>';
-  $("dashLog").innerHTML = (j.recent || []).length ? j.recent.map((r) =>
-    '<div class="logrow"><span class="lo">#' + esc(r.order) + '</span><span class="ln">' + esc(r.name || "\u2014") + '</span><span class="ls">' + esc(r.session) + '</span><span class="lt">' + esc(String(r.time || "").replace("T", " ").slice(0, 16)) + "</span></div>"
-  ).join("") : '<div class="sheet-empty">No check-ins recorded yet.</div>';
+  // Recent log: start with the last hour, then "Load more" pages through to every check-in.
+  _recent = j.recent || [];
+  const cutoff = Date.now() - 3600e3;
+  _recentHour = _recent.filter((r) => { const t = logTime(r.time); return !isNaN(t) && t >= cutoff; }).length;
+  _recentLimit = _recentHour;
+  renderRecent();
 }
+const RECENT_PAGE = 50;
+let _recent = [], _recentHour = 0, _recentLimit = 0;
+function logTime(s) { const d = new Date(String(s || "")); return d.getTime(); }
+function logRow(r) {
+  return '<div class="logrow"><span class="lo">#' + esc(r.order) + '</span><span class="ln">' + esc(r.name || "\u2014") +
+    '</span><span class="ls">' + esc(r.session) + '</span><span class="lt">' + esc(String(r.time || "").replace("T", " ").slice(0, 16)) + "</span></div>";
+}
+function renderRecent() {
+  const total = _recent.length;
+  const shown = _recent.slice(0, _recentLimit);
+  $("dashLog").innerHTML = total === 0
+    ? '<div class="sheet-empty">No check-ins recorded yet.</div>'
+    : (shown.length ? shown.map(logRow).join("") : '<div class="sheet-empty">No check-ins in the last hour \u2014 use \u201cLoad more\u201d to see earlier ones.</div>');
+  const note = total === 0 ? ""
+    : _recentLimit >= total ? "\u00b7 showing all " + total
+    : (_recentLimit === _recentHour ? "\u00b7 last hour \u00b7 " + _recentLimit + " of " + total : "\u00b7 " + _recentLimit + " of " + total);
+  $("dashLogNote").textContent = note;
+  $("dashMore").classList.toggle("hidden", total === 0 || _recentLimit >= total);
+}
+$("dashMore").onclick = () => { _recentLimit = Math.min(_recent.length, _recentLimit + RECENT_PAGE); renderRecent(); };
 function renderDayChart(sessions) {
   const cv = $("chartDay"); if (!cv || !window.Chart) return;
   const days = [], meals = [], cell = {};

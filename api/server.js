@@ -354,7 +354,7 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     }
     recent.sort((a, b) => String(b.time).localeCompare(String(a.time)));
     const byPass = Object.entries(passCounts).map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count);
-    const data = { workbook: name, sessions, byPass, totals: { total, registered }, recent: recent.slice(0, 40), updatedAt: new Date().toISOString() };
+    const data = { workbook: name, sessions, byPass, totals: { total, registered }, recent, updatedAt: new Date().toISOString() };
     summaryCache = { key, at: Date.now(), data };
     res.json(data);
   } catch (e) {
