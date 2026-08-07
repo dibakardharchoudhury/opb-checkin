@@ -25,8 +25,11 @@ QR "3499;" → PWA (order 3499) → POST /api/register → backend
 
 1. `order` = number before the first `;` in the QR.
 2. Candidates = rows where `Order Number`/`RegistrationID` == order.
-3. Session = Oslo local time after **14:00 → Dinner**, else **Lunch**.
-4. Valid = candidates whose pass **Date == today (Oslo)** and **PassType == session**.
+3. Session = CET/Oslo local time strictly after the **cut-off → Dinner**, else **Lunch**.
+   The cut-off is **16:00** (was 14:00 in the original flow) and is configurable via the
+   `SESSION_CUTOFF` app setting (HHmm, e.g. `1600`). Exactly at the cut-off stays Lunch.
+4. Valid = candidates whose pass **Date == today (Oslo)** and **PassType == session** — so a
+   pass is honoured only for its own date and the current meal, never for all days/both meals.
    - Discrete-column workbooks match on `Date`/`PassType`.
    - Collapsed-key workbooks match `AppKey`/`UniqueKey` starting with `order+dateSerial+session`.
 5. No valid row → `ERROR!!! This Pass is NOT valid at this moment!`

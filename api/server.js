@@ -24,6 +24,12 @@ import { getConfig, setConfig } from "./configstore.js";
 
 const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
+// Meal cut-off (CET, HHmm): strictly after this only Dinner passes are valid, else Lunch.
+// Ported from OPB_Excel_QRCodeScannerFlow (was 1400; OPB now uses 1600). Configurable.
+const SESSION_CUTOFF = Number.parseInt(process.env.SESSION_CUTOFF, 10) || 1600;
+// Default false = apply the flow's date + meal validation (a pass is valid only for its own
+// date and the current meal window). Set SHEET_SCOPED=true to fall back to order-only matching.
+const SHEET_SCOPED = /^(1|true|yes)$/i.test(process.env.SHEET_SCOPED || "");
 
 // Friendly workbook (spreadsheet) name derived from the env-configured locator.
 function workbookName() {
@@ -239,7 +245,7 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
 
     const table = await tableForSheet(token, base, session, sheet);
     const { headers, rows } = await readTable(token, base, session, table);
-    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, sheetScoped: !!sheet });
+    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, cutoff: SESSION_CUTOFF, sheetScoped: SHEET_SCOPED });
 
     if (result.decision === "SUCCESS") {
       for (const item of result.patch) await patchRow(token, base, session, table, item);

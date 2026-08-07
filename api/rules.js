@@ -68,9 +68,11 @@ export function nowInZone(tz, when = new Date()) {
   };
 }
 
-// The flow rule: after 14:00 only Dinner passes are valid, otherwise Lunch.
-export function sessionFor(hhmm) {
-  return hhmm > 1400 ? "Dinner" : "Lunch";
+// The flow rule: strictly AFTER the cutoff (CET) only Dinner passes are valid, else Lunch.
+// The Power Automate flow used 1400; OPB now uses 1600 (configurable via SESSION_CUTOFF).
+// Semantics match the flow's greater(HHmm, cutoff): exactly at the cutoff is still Lunch.
+export function sessionFor(hhmm, cutoff = 1600) {
+  return hhmm > cutoff ? "Dinner" : "Lunch";
 }
 
 // Normalize a cell that holds a pass date (may be an Excel serial number, a Date,
@@ -98,10 +100,10 @@ const norm = (v) => String(v ?? "").trim();
 // sheetScoped=true: the target worksheet IS the event session (e.g. "Saturday Dinner"),
 // so every row already belongs to it — match on the order number alone and skip the
 // date/time-of-day derivation the single-sheet flow used.
-export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", now = new Date(), sheetScoped = false }) {
+export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", now = new Date(), sheetScoped = false, cutoff = 1600 }) {
   const col = mapColumns(headers);
   const clock = nowInZone(tz, now);
-  const session = sessionFor(clock.hhmm);
+  const session = sessionFor(clock.hhmm, cutoff);
   const todaySerial = excelSerial(clock.dateOnly);
   const order = norm(orderNumber);
 

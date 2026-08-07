@@ -14,8 +14,14 @@ const serial = excelSerial(nowInZone("Europe/Oslo", noonOslo).dateOnly);
 test("excel serial + session helpers", () => {
   assert.equal(serial, 45926);
   assert.equal(sessionFor(1200), "Lunch");
-  assert.equal(sessionFor(1401), "Dinner");
-  assert.equal(sessionFor(1400), "Lunch"); // flow used > 1400
+  // Default cut-off is now 1600 (was 1400): only strictly after 1600 is Dinner.
+  assert.equal(sessionFor(1401), "Lunch");
+  assert.equal(sessionFor(1600), "Lunch"); // exactly at the cut-off stays Lunch
+  assert.equal(sessionFor(1601), "Dinner");
+  assert.equal(sessionFor(2100), "Dinner");
+  // Custom cut-off still honours the greater-than semantics.
+  assert.equal(sessionFor(1500, 1400), "Dinner");
+  assert.equal(sessionFor(1500), "Lunch");
   assert.equal(passDateYMD(45926), "2025-09-26");
   assert.equal(passDateYMD("2025-09-26 00:00:00"), "2025-09-26");
 });
@@ -74,4 +80,83 @@ test("Variant B: AppKey prefix match registers", () => {
   assert.equal(r.decision, "SUCCESS");
   assert.equal(r.patch.length, 1);
   assert.equal(r.patch[0].index, 7);
+});
+
+// ---- Flow fidelity: a pass is valid ONLY for its own date and the current meal window ----
+// (Ported from OPB_Excel_QRCodeScannerFlow Filter_array; cut-off now 1600 CET.)
+const friSerial = serial - 1;                          // 2025-09-25 (Friday)
+const satLunch = noonOslo;                             // 2025-09-26 12:00 CEST -> Lunch
+const satEve = new Date("2025-09-26T15:00:00Z");       // 2025-09-26 17:00 CEST -> Dinner (>1600)
+const sat3pm = new Date("2025-09-26T13:00:00Z");       // 2025-09-26 15:00 CEST -> HHmm 1500
+// One order with a pass for every day/meal — exactly the case the UniqueKey was built for.
+const fullOrderA = [
+  { ...rowA(4000, friSerial, "Lunch", "Yes"), index: 1 },
+  { ...rowA(4000, friSerial, "Dinner", "Yes"), index: 2 },
+  { ...rowA(4000, serial, "Lunch", "Yes"), index: 3 },
+  { ...rowA(4000, serial, "Dinner", "Yes"), index: 4 },
+];
+
+test("flow: only TODAY's Dinner row registers after the 1600 cut-off", () => {
+  const r = evaluateScan({ headers: headersA, rows: fullOrderA, orderNumber: "4000", now: satEve });
+  assert.equal(r.decision, "SUCCESS");
+  assert.equal(r.patch.length, 1);
+  assert.equal(r.patch[0].index, 4); // Saturday Dinner only — not Friday, not Lunch
+});
+
+test("flow: only TODAY's Lunch row registers before the cut-off", () => {
+  const r = evaluateScan({ headers: headersA, rows: fullOrderA, orderNumber: "4000", now: satLunch });
+  assert.equal(r.decision, "SUCCESS");
+  assert.equal(r.patch.length, 1);
+  assert.equal(r.patch[0].index, 3); // Saturday Lunch only
+});
+
+test("flow: 1500 is Lunch under the 1600 cut-off, Dinner under a 1400 cut-off", () => {
+  const rL = evaluateScan({ headers: headersA, rows: fullOrderA, orderNumber: "4000", now: sat3pm });
+  assert.equal(rL.patch[0].index, 3); // default 1600 -> Lunch
+  const rD = evaluateScan({ headers: headersA, rows: fullOrderA, orderNumber: "4000", now: sat3pm, cutoff: 1400 });
+  assert.equal(rD.patch[0].index, 4); // cut-off 1400 -> Dinner
+});
+
+test("flow: a pass only for Friday is INVALID when scanned on Saturday", () => {
+  const friOnly = [
+    { ...rowA(5000, friSerial, "Lunch", "Yes"), index: 1 },
+    { ...rowA(5000, friSerial, "Dinner", "Yes"), index: 2 },
+  ];
+  const r = evaluateScan({ headers: headersA, rows: friOnly, orderNumber: "5000", now: satLunch });
+  assert.equal(r.decision, "INVALID");
+  assert.match(r.response, /NOT valid/i);
+});
+
+test("flow: veg + non-veg for the same date/meal both register, other meals untouched", () => {
+  const rows = [
+    { ...rowA(6000, serial, "Dinner", "Yes"), index: 10 },
+    { ...rowA(6000, serial, "Dinner", "No"), index: 11 },
+    { ...rowA(6000, serial, "Lunch", "Yes"), index: 12 },
+  ];
+  const r = evaluateScan({ headers: headersA, rows, orderNumber: "6000", now: satEve });
+  assert.equal(r.decision, "SUCCESS");
+  assert.deepEqual(r.patch.map((p) => p.index).sort((a, b) => a - b), [10, 11]);
+});
+
+test("flow (Variant B): collapsed AppKey picks today's Dinner across days", () => {
+  const rows = [
+    { ...rowB(4000, friSerial, "Lunch", "Yes"), index: 1 },
+    { ...rowB(4000, friSerial, "Dinner", "Yes"), index: 2 },
+    { ...rowB(4000, serial, "Lunch", "Yes"), index: 3 },
+    { ...rowB(4000, serial, "Dinner", "Yes"), index: 4 },
+  ];
+  const r = evaluateScan({ headers: headersB, rows, orderNumber: "4000", now: satEve });
+  assert.equal(r.decision, "SUCCESS");
+  assert.equal(r.patch.length, 1);
+  assert.equal(r.patch[0].index, 4);
+});
+
+test("flow: already-registered today's pass returns ALREADY, not a re-register", () => {
+  const rows = [
+    { ...rowA(7000, serial, "Dinner", "Yes", "REGISTERED"), index: 20 },
+    { ...rowA(7000, serial, "Lunch", "Yes"), index: 21 },
+  ];
+  const r = evaluateScan({ headers: headersA, rows, orderNumber: "7000", now: satEve });
+  assert.equal(r.decision, "ALREADY");
+  assert.match(r.response, /already registered/i);
 });
