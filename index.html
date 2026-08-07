@@ -514,8 +514,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.11"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 13:02 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v1.12"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 13:24 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -813,13 +813,19 @@ async function loadUsers() {
     renderUsers(j.users || [], j.me);
   } catch { list.innerHTML = '<div class="sheet-empty">Could not load users.</div>'; }
 }
+function maskEmail(e) {
+  const [u, d] = String(e).split("@");
+  if (!d) return e;
+  const head = u.length <= 2 ? (u[0] || "") : u.slice(0, 2);
+  return head + "\u2022\u2022\u2022@" + d;
+}
 function renderUsers(users, me) {
   $("userList").innerHTML = users.map((u) => {
     const roleBadge = u.role === "admin" ? '<span class="badge admin">Admin</span>' : '<span class="badge user">Volunteer</span>';
     const right = u.source === "config" ? '<span class="lock">built-in</span>'
       : (u.email === me ? '<span class="lock">you</span>'
         : '<button class="rm" data-email="' + esc(u.email) + '" title="Remove">\u2715</button>');
-    return '<div class="urow"><span class="ue">' + esc(u.email) + '</span>' + roleBadge + right + '</div>';
+    return '<div class="urow"><span class="ue" title="hidden for privacy">' + esc(maskEmail(u.email)) + '</span>' + roleBadge + right + '</div>';
   }).join("") || '<div class="sheet-empty">No volunteers yet \u2014 add one above.</div>';
 }
 async function addUser() {
