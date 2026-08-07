@@ -18,11 +18,15 @@ const DATA_DIR = process.env.DATA_DIR
     : path.join(os.tmpdir(), "opb-data"));
 const FILE = path.join(DATA_DIR, "opb-config.json");
 
-const DEFAULT = { scanSheet: "", guestSheets: [] };
+const DEFAULT = { workbook: null, scanSheet: "", guestSheets: [] };
 let cache = null;
 
 function normalize(c) {
+  const wb = c?.workbook && typeof c.workbook.id === "string"
+    ? { id: c.workbook.id, name: typeof c.workbook.name === "string" ? c.workbook.name : "" }
+    : null;
   return {
+    workbook: wb,
     scanSheet: typeof c?.scanSheet === "string" ? c.scanSheet : "",
     guestSheets: Array.isArray(c?.guestSheets) ? c.guestSheets.filter((s) => typeof s === "string") : [],
   };
@@ -42,6 +46,8 @@ export async function getConfig() {
 export async function setConfig(patch) {
   const c = await load();
   if (patch && typeof patch === "object") {
+    if ("workbook" in patch) c.workbook = patch.workbook && typeof patch.workbook.id === "string"
+      ? { id: patch.workbook.id, name: typeof patch.workbook.name === "string" ? patch.workbook.name : "" } : null;
     if ("scanSheet" in patch) c.scanSheet = typeof patch.scanSheet === "string" ? patch.scanSheet : "";
     if ("guestSheets" in patch) c.guestSheets = Array.isArray(patch.guestSheets) ? patch.guestSheets.filter((s) => typeof s === "string") : [];
   }

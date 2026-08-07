@@ -469,6 +469,8 @@
             Guest List &amp; scanning
           </div>
           <div class="body">
+            <div class="cfgrow"><label for="cfgWorkbook">Spreadsheet <span class="cfgwhere">(Excel file)</span></label>
+              <select id="cfgWorkbook"><option value="">Loading spreadsheets…</option></select></div>
             <div class="cfgrow"><label for="cfgScan">Active event session <span class="cfgwhere">(Scan &amp; Register)</span></label>
               <select id="cfgScan"><option value="">Choose the day / meal…</option></select></div>
             <div class="cfglbl">Worksheets volunteers can view <span class="cfgwhere">(Guest List)</span></div>
@@ -523,8 +525,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.20"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07T12:09:28Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.21"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07T12:21:05Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -831,7 +833,7 @@ function openSettings() {
   const admin = isAdmin();
   $("settingsAdmin").classList.toggle("hidden", !admin);
   $("settingsLocked").classList.toggle("hidden", admin);
-  if (admin) { loadUsers(); renderCfgSheets(); }
+  if (admin) { loadUsers(); loadWorkbooks(); renderCfgSheets(); }
 }
 function renderCfgSheets() {
   const el = $("cfgSheets"); if (!el) return;
@@ -913,19 +915,50 @@ $("scrim").onclick = () => document.body.classList.remove("nav-open");
 // ---- authentication (Google / Microsoft social sign-in) ----
 let session = { token: sessionStorage.getItem("opb_tok") || "", name: "", role: "", email: "" };
 
-// ---- shared, admin-set config (active scan session + volunteer-visible sheets) ----
-let appConfig = { scanSheet: "", guestSheets: [] };
+// ---- shared, admin-set config (spreadsheet + scan session + volunteer-visible sheets) ----
+let appConfig = { workbook: null, scanSheet: "", guestSheets: [] };
+let allWorkbooks = [];
 function isAdmin() { return session.role === "admin"; }
+function normCfg(j) {
+  return {
+    workbook: j && j.workbook && j.workbook.id ? { id: j.workbook.id, name: j.workbook.name || "" } : null,
+    scanSheet: j && j.scanSheet || "",
+    guestSheets: j && Array.isArray(j.guestSheets) ? j.guestSheets : [],
+  };
+}
 async function loadConfig() {
-  try { const r = await api("/api/config"); const j = await r.json(); if (r.ok) appConfig = { scanSheet: j.scanSheet || "", guestSheets: Array.isArray(j.guestSheets) ? j.guestSheets : [] }; } catch {}
+  try { const r = await api("/api/config"); const j = await r.json(); if (r.ok) appConfig = normCfg(j); } catch {}
 }
 async function saveConfig(patch) {
   Object.assign(appConfig, patch); applyConfig();
   try { const r = await api("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
-    const j = await r.json(); if (r.ok) { appConfig = { scanSheet: j.scanSheet || "", guestSheets: Array.isArray(j.guestSheets) ? j.guestSheets : [] }; applyConfig(); } } catch {}
+    const j = await r.json(); if (r.ok) { appConfig = normCfg(j); applyConfig(); } } catch {}
 }
+async function loadWorkbooks() {
+  const sel = $("cfgWorkbook"); if (!sel) return;
+  try {
+    const r = await api("/api/workbooks"); const j = await r.json();
+    allWorkbooks = (r.ok && Array.isArray(j.workbooks)) ? j.workbooks : [];
+    renderWorkbookSelect();
+  } catch { sel.innerHTML = '<option value="">Could not load spreadsheets</option>'; }
+}
+function renderWorkbookSelect() {
+  const sel = $("cfgWorkbook"); if (!sel) return;
+  const cur = appConfig.workbook ? appConfig.workbook.id : "";
+  sel.innerHTML = '<option value="">Default spreadsheet</option>' +
+    allWorkbooks.map((w) => '<option value="' + esc(w.id) + '"' + (w.id === cur ? " selected" : "") + ">" + esc(w.name) + "</option>").join("");
+}
+$("cfgWorkbook").addEventListener("change", async (e) => {
+  if (!isAdmin()) return;
+  const wb = allWorkbooks.find((w) => w.id === e.target.value) || null;
+  // Switching files changes the worksheets, so reset the session + visible sheets.
+  await saveConfig({ workbook: wb, scanSheet: "", guestSheets: [] });
+  tabsFetched = false; sheetStore && Object.keys(sheetStore).forEach((k) => delete sheetStore[k]);
+  await loadTabs(true);
+});
 // Reflect config + role across the scan status, guest tab bar, and settings controls.
 function applyConfig() {
+  const wsel = $("cfgWorkbook"); if (wsel && allWorkbooks.length) wsel.value = appConfig.workbook ? appConfig.workbook.id : "";
   const cfg = $("cfgScan"); if (cfg) cfg.value = appConfig.scanSheet || "";
   renderTabBar();
   renderCfgSheets();

@@ -45,14 +45,24 @@ export async function getAccessToken() {
   return cached.token;
 }
 
-function workbookBase() {
-  const loc = process.env.GRAPH_WORKBOOK || "";
+function workbookBase(loc) {
+  loc = loc || process.env.GRAPH_WORKBOOK || "";
   if (loc.startsWith("id:")) return `${GRAPH}/me/drive/items/${encodeURIComponent(loc.slice(3))}/workbook`;
   if (loc.startsWith("path:")) {
     const p = loc.slice(5).replace(/^\/+/, "");
     return `${GRAPH}/me/drive/root:/${p.split("/").map(encodeURIComponent).join("/")}:/workbook`;
   }
-  throw new Error('GRAPH_WORKBOOK must be "id:<driveItemId>" or "path:/Folder/File.xlsx"');
+  throw new Error('Workbook locator must be "id:<driveItemId>" or "path:/Folder/File.xlsx"');
+}
+
+// List Excel workbooks (.xlsx) in the owner's OneDrive so an admin can pick the file.
+export async function listWorkbooks(token) {
+  const url = `${GRAPH}/me/drive/root/search(q='.xlsx')?$select=id,name,file&$top=100`;
+  const j = await gfetch(url, { token });
+  return (j.value || [])
+    .filter((it) => it.file && /\.xlsx$/i.test(it.name || ""))
+    .map((it) => ({ id: it.id, name: String(it.name).replace(/\.xlsx$/i, "") }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function gfetch(url, { token, session, method = "GET", body } = {}) {

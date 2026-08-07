@@ -14,7 +14,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import {
   getAccessToken, workbookBase, openSession, closeSession, readTable, patchRow,
-  listWorksheets, firstTableName, readWorksheetUsedRange,
+  listWorksheets, firstTableName, readWorksheetUsedRange, listWorkbooks,
 } from "./graph.js";
 import { evaluateScan } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
@@ -24,12 +24,19 @@ import { getConfig, setConfig } from "./configstore.js";
 const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
 
-// Friendly workbook (spreadsheet) name derived from the configured locator.
+// Friendly workbook (spreadsheet) name derived from the env-configured locator.
 function workbookName() {
   const loc = process.env.GRAPH_WORKBOOK || "";
   const raw = loc.startsWith("path:") ? loc.slice(5) : loc;
   const base = raw.split("/").filter(Boolean).pop() || "";
   return base.replace(/\.xlsx$/i, "") || "Workbook";
+}
+
+// The workbook to operate on: the admin-selected file from config, else the env default.
+async function wbContext() {
+  const cfg = await getConfig();
+  if (cfg.workbook && cfg.workbook.id) return { loc: "id:" + cfg.workbook.id, name: cfg.workbook.name || "Workbook" };
+  return { loc: undefined, name: workbookName() };
 }
 
 const ALLOWED = (process.env.ALLOWED_ORIGINS || "*")
@@ -103,10 +110,25 @@ app.get("/api/config", requireAuth(), async (_req, res) => {
 });
 app.post("/api/config", requireAuth("admin"), async (req, res) => {
   const patch = {};
+  if ("workbook" in (req.body || {})) {
+    const w = req.body.workbook;
+    patch.workbook = w && typeof w.id === "string" ? { id: w.id, name: String(w.name || "") } : null;
+  }
   if ("scanSheet" in (req.body || {})) patch.scanSheet = String(req.body.scanSheet || "");
   if ("guestSheets" in (req.body || {})) patch.guestSheets = Array.isArray(req.body.guestSheets) ? req.body.guestSheets.map((s) => String(s)) : [];
-  try { res.json(await setConfig(patch)); }
+  try { tabsCache = { key: "", at: 0, data: null }; res.json(await setConfig(patch)); }
   catch (e) { res.status(500).json({ error: "Could not save configuration." }); }
+});
+
+// GET /api/workbooks -> { workbooks: [{id,name}] }  — Excel files in the owner's OneDrive.
+app.get("/api/workbooks", requireAuth("admin"), async (_req, res) => {
+  try {
+    const token = await getAccessToken();
+    res.json({ workbooks: await listWorkbooks(token) });
+  } catch (e) {
+    console.error("workbooks load failed:", e?.message || e);
+    res.status(500).json({ error: "Could not list spreadsheets.", detail: e?.message || String(e) });
+  }
 });
 
 // ---- Admin-only volunteer/role management ----
@@ -151,17 +173,19 @@ async function tableForSheet(token, base, session, sheet) {
 }
 
 // GET /api/tabs -> { tabs: [names] }  — the workbook's worksheets, for the UI pickers.
-let tabsCache = { at: 0, data: null };
+let tabsCache = { key: "", at: 0, data: null };
 app.get("/api/tabs", requireAuth(), async (req, res) => {
-  if (tabsCache.data && Date.now() - tabsCache.at < 300_000) return res.json(tabsCache.data);
   let token, base, session;
   try {
+    const { loc, name } = await wbContext();
+    const key = loc || "__env__";
+    if (tabsCache.data && tabsCache.key === key && Date.now() - tabsCache.at < 300_000) return res.json(tabsCache.data);
     token = await getAccessToken();
-    base = workbookBase();
+    base = workbookBase(loc);
     session = await openSession(token, base);
     const tabs = await listWorksheets(token, base, session);
-    const data = { tabs, workbook: workbookName(), updatedAt: new Date().toISOString() };
-    tabsCache = { at: Date.now(), data };
+    const data = { tabs, workbook: name, updatedAt: new Date().toISOString() };
+    tabsCache = { key, at: Date.now(), data };
     res.json(data);
   } catch (e) {
     console.error("tabs load failed:", e?.message || e);
@@ -177,12 +201,13 @@ app.get("/api/tabs", requireAuth(), async (req, res) => {
 app.get("/api/ping-sheet", requireAuth(), async (req, res) => {
   const sheet = String(req.query.sheet || "").trim();
   try {
+    const { loc, name } = await wbContext();
     const token = await getAccessToken();
-    const base = workbookBase();
-    if (!sheet) { await listWorksheets(token, base, null); return res.json({ ok: true, workbook: workbookName() }); }
+    const base = workbookBase(loc);
+    if (!sheet) { await listWorksheets(token, base, null); return res.json({ ok: true, workbook: name }); }
     const table = await firstTableName(token, base, null, sheet);
-    if (!table) return res.json({ ok: false, workbook: workbookName(), sheet, error: "No check-in table on that worksheet." });
-    res.json({ ok: true, workbook: workbookName(), sheet, table });
+    if (!table) return res.json({ ok: false, workbook: name, sheet, error: "No check-in table on that worksheet." });
+    res.json({ ok: true, workbook: name, sheet, table });
   } catch (e) {
     res.json({ ok: false, sheet, error: e?.message || "Cannot reach the spreadsheet." });
   }
@@ -199,8 +224,9 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
 
   let token, base, session;
   try {
+    const { loc } = await wbContext();
     token = await getAccessToken();
-    base = workbookBase();
+    base = workbookBase(loc);
     session = await openSession(token, base);
 
     const table = await tableForSheet(token, base, session, sheet);
@@ -227,14 +253,14 @@ let sheetCache = { key: "", at: 0, data: null };
 app.get("/api/sheet", requireAuth(), async (req, res) => {
   const fresh = req.query.refresh === "1";
   const requested = String(req.query.tabs || "").split(",").map((s) => s.trim()).filter(Boolean);
-  const cacheKey = requested.join("|") || "__legacy__";
-  if (!fresh && sheetCache.data && sheetCache.key === cacheKey && Date.now() - sheetCache.at < 15_000)
-    return res.json(sheetCache.data);
-
   let token, base, session;
   try {
+    const { loc } = await wbContext();
+    const cacheKey = (loc || "__env__") + "|" + (requested.join("|") || "__legacy__");
+    if (!fresh && sheetCache.data && sheetCache.key === cacheKey && Date.now() - sheetCache.at < 15_000)
+      return res.json(sheetCache.data);
     token = await getAccessToken();
-    base = workbookBase();
+    base = workbookBase(loc);
     session = await openSession(token, base);
 
     const names = requested.length ? requested : [null]; // null => legacy TABLE_NAME
