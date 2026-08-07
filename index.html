@@ -92,6 +92,7 @@
     padding:7px 13px; border-radius:30px; box-shadow:0 2px 8px rgba(217,164,65,.3); white-space:nowrap; }
 
   main { padding:8px 22px 26px; max-width:560px; width:100%; margin:0 auto; }
+  body.view-guests main { max-width:1120px; }
   .view { display:none; }
   .view.active { display:block; animation:fade .25s ease; }
   @keyframes fade { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
@@ -168,7 +169,7 @@
   .sheetmeta { font-size:12px; color:var(--muted); margin:0 2px 12px; display:flex; justify-content:space-between; gap:10px; }
   .tablewrap { overflow:auto; -webkit-overflow-scrolling:touch; border:1px solid rgba(217,164,65,.5);
     border-radius:16px; background:var(--ivory); box-shadow:0 12px 34px rgba(122,18,32,.12); max-height:calc(100dvh - 210px); }
-  .gtable { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; min-width:600px; }
+  .gtable { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; min-width:640px; }
   .gtable thead th { position:sticky; top:0; z-index:1; text-align:left; padding:12px 14px; white-space:nowrap;
     font-size:11.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--maroon); cursor:pointer;
     user-select:none; background:linear-gradient(180deg,#fff,#fbeed3); border-bottom:2px solid var(--gold); }
@@ -180,6 +181,8 @@
   .gtable tbody tr:nth-child(even) td { background:rgba(217,164,65,.06); }
   .gtable tbody tr:hover td { background:rgba(217,164,65,.16); }
   .gtable td.nm { font-weight:600; color:var(--ink); }
+  .gtable td.item { white-space:normal; line-height:1.4; min-width:240px; width:45%; }
+  .gtable td.qty { text-align:center; color:var(--muted); }
   .gtable td.dtc { color:var(--muted); font-size:12.5px; }
   .badge { font-size:11px; font-weight:600; padding:5px 10px; border-radius:20px; white-space:nowrap; display:inline-block; }
   .badge.reg { background:#e3f3e9; color:#1f7a4d; border:1px solid #bfe3cd; }
@@ -194,19 +197,13 @@
   .sesspick select { flex:1; min-width:0; padding:10px 12px; border-radius:11px; border:1.5px solid rgba(217,164,65,.7);
     background:#fff; color:var(--ink); font:inherit; font-weight:600; }
   .sesspick.unset select { border-color:var(--err); }
-  .tabpick { margin:0 0 12px; padding:12px 14px; background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:14px; }
-  .tabpick .lbl { font-size:11.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--maroon); margin-bottom:8px; }
-  .tabpick .chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
-  .tabchip { display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:20px; cursor:pointer;
-    font-size:13px; font-weight:600; color:var(--maroon); background:#fff; border:1.5px solid rgba(217,164,65,.6); user-select:none; }
-  .tabchip.on { background:var(--maroon); color:#fff; border-color:var(--maroon); }
-  .tabpick .go { display:flex; gap:8px; align-items:center; }
-  .tabpick .go button { flex:0 0 auto; padding:10px 18px; }
-  .tabpick .hint { font-size:12px; color:var(--muted); }
-  .sheettabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; }
+  .sheettabs-label { font-size:11.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--maroon); margin:0 2px 8px; }
+  .hint { font-size:12px; color:var(--muted); }
+  .sheettabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
   .sheettabs button { padding:8px 14px; border-radius:12px; font-size:13px; font-weight:600; background:#fff;
     color:var(--maroon); border:1.5px solid rgba(217,164,65,.6); box-shadow:none; }
   .sheettabs button::after { content:none; }
+  .sheettabs button b { font-weight:700; opacity:.7; }
   .sheettabs button.on { background:linear-gradient(180deg,var(--maroon),#5f0d18); color:#fff; border-color:var(--maroon); }
 
   /* ---- volunteer / role management ---- */
@@ -411,15 +408,8 @@
       </div>
     </section>
     <section class="view" data-view="guests">
-      <div class="tabpick">
-        <div class="lbl">Worksheets to load</div>
-        <div class="chips" id="tabChips"><span class="hint">Loading tabs…</span></div>
-        <div class="go">
-          <button id="tabLoad">Load selected</button>
-          <span class="hint" id="tabHint">Pick one or more event tabs, then Load.</span>
-        </div>
-      </div>
-      <div class="sheettabs" id="sheetTabs"></div>
+      <div class="sheettabs-label">Worksheet</div>
+      <div class="sheettabs" id="sheetTabs"><span class="hint">Loading worksheets…</span></div>
       <div class="sheetbar">
         <input id="sheetSearch" placeholder="Search name or order number" />
         <button id="sheetRefresh" class="ghost" title="Refresh from Excel" aria-label="Refresh">↻</button>
@@ -430,8 +420,8 @@
           <thead><tr>
             <th data-k="name">Name</th>
             <th data-k="order">Order&nbsp;#</th>
-            <th data-k="pass">Pass</th>
-            <th data-k="date">Date</th>
+            <th data-k="item">Item</th>
+            <th data-k="qty">Qty</th>
             <th data-k="reg">Status</th>
             <th data-k="dt">Checked in</th>
           </tr></thead>
@@ -510,8 +500,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v14"; // keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 11:37 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v15"; // keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 11:58 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -610,16 +600,17 @@ $("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("manua
 const SHEETCOLS = {
   order:["registrationid","order number","ordernumber","order"],
   first:["first name","firstname"], last:["last name","lastname"],
-  date:["date"], pass:["passtype","pass type"], key:["appkey","uniquekey"],
+  item:["item","pass type","passtype"], qty:["quantity","qty"],
   status:["status"], dt:["datetime","date time"],
 };
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 function idxOf(headers, cands) { const l = headers.map((h) => String(h ?? "").trim().toLowerCase()); for (const c of cands) { const i = l.indexOf(c); if (i !== -1) return i; } return -1; }
 
-// Tab state shared by the scan session picker and the Guest List multi-select.
+// One worksheet selector (the tab bar). Clicking a tab lazily loads and shows it;
+// results are cached so switching is instant. This is the single Guest List filter.
 let allTabs = [], tabsFetched = false;
-const selectedTabs = new Set();          // worksheets chosen for the Guest List
-let loadedSheets = [], activeSheet = "", sheetsStale = false;
+const sheetStore = {};                 // worksheet name -> loaded { name, headers, rows, count }
+let activeSheet = "", sheetsStale = false;
 let sheetCols = null, gRows = [], gSort = { key: "order", dir: 1 };
 
 async function loadTabs(force) {
@@ -634,66 +625,48 @@ async function loadTabs(force) {
     sel.innerHTML = '<option value="">Choose the day / meal…</option>' +
       allTabs.map((t) => '<option value="' + esc(t) + '"' + (t === saved ? " selected" : "") + ">" + esc(t) + "</option>").join("");
     if (saved && allTabs.includes(saved)) $("scanSessBox").classList.remove("unset");
-    renderTabChips();
+    renderTabBar();
   } catch {
-    $("tabChips").innerHTML = '<span class="hint">Could not load worksheet list.</span>';
+    $("sheetTabs").innerHTML = '<span class="hint">Could not load worksheet list.</span>';
     $("scanSheet").innerHTML = '<option value="">Could not load sessions</option>';
   }
 }
-function renderTabChips() {
-  $("tabChips").innerHTML = allTabs.length
-    ? allTabs.map((t) => '<span class="tabchip' + (selectedTabs.has(t) ? " on" : "") + '" data-tab="' + esc(t) + '">' + esc(t) + "</span>").join("")
+function renderTabBar() {
+  $("sheetTabs").innerHTML = allTabs.length
+    ? allTabs.map((t) => {
+        const s = sheetStore[t];
+        return '<button data-sheet="' + esc(t) + '" class="' + (t === activeSheet ? "on" : "") + '">' +
+          esc(t) + (s ? " <b>(" + s.count + ")</b>" : "") + "</button>";
+      }).join("")
     : '<span class="hint">No worksheets found.</span>';
 }
-$("tabChips").addEventListener("click", (e) => {
-  const chip = e.target.closest(".tabchip"); if (!chip) return;
-  const t = chip.dataset.tab;
-  if (selectedTabs.has(t)) selectedTabs.delete(t); else selectedTabs.add(t);
-  chip.classList.toggle("on");
+$("sheetTabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-sheet]"); if (!b) return;
+  selectSheet(b.dataset.sheet, false);
 });
-$("tabLoad").onclick = () => loadSheets(false);
 $("scanSheet").addEventListener("change", (e) => {
   const v = e.target.value; localStorage.setItem("opb_scan_sheet", v);
   $("scanSessBox").classList.toggle("unset", !v);
 });
 
-async function loadSheets(force) {
-  const chosen = [...selectedTabs];
-  if (!chosen.length) { $("tabHint").textContent = "Select at least one worksheet first."; return; }
-  $("tabHint").textContent = ""; $("sheetMeta").textContent = "Loading the register…";
+async function selectSheet(name, force) {
+  activeSheet = name; renderTabBar();
+  if (sheetStore[name] && !force) { showActiveSheet(); return; }
+  $("sheetMeta").textContent = "Loading " + name + "\u2026"; $("gtbody").innerHTML = "";
   try {
-    const q = "tabs=" + encodeURIComponent(chosen.join(",")) + (force ? "&refresh=1" : "");
-    const r = await api("/api/sheet?" + q); const j = await r.json();
+    const r = await api("/api/sheet?tabs=" + encodeURIComponent(name) + (force ? "&refresh=1" : ""));
+    const j = await r.json();
     if (!r.ok) throw new Error(j.error || "Failed to load");
-    loadedSheets = j.sheets || []; sheetsStale = false;
-    if (!loadedSheets.some((s) => s.name === activeSheet)) activeSheet = loadedSheets.length ? loadedSheets[0].name : "";
-    renderSheetTabs(); showActiveSheet();
+    const sheet = (j.sheets || [])[0];
+    if (sheet) sheetStore[name] = sheet;
+    sheetsStale = false; renderTabBar(); showActiveSheet();
   } catch (e) {
     $("sheetMeta").textContent = "";
     $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Could not load the sheet.<br>' + esc(e.message || "") + "</td></tr>";
   }
 }
-function renderSheetTabs() {
-  $("sheetTabs").innerHTML = loadedSheets.map((s) =>
-    '<button data-sheet="' + esc(s.name) + '" class="' + (s.name === activeSheet ? "on" : "") + '">' +
-    esc(s.name) + " <b>(" + s.count + ")</b></button>").join("");
-}
-$("sheetTabs").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-sheet]"); if (!b) return;
-  activeSheet = b.dataset.sheet; renderSheetTabs(); showActiveSheet();
-});
-function currentSheet() { return loadedSheets.find((s) => s.name === activeSheet) || null; }
+function currentSheet() { return sheetStore[activeSheet] || null; }
 
-function serialToYMD(n) {
-  const ms = Date.UTC(1899, 11, 30) + Math.round(n) * 86400000;
-  const d = new Date(ms);
-  return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
-}
-function normDate(v) {
-  if (v == null || v === "") return "";
-  if (typeof v === "number" || /^\d+(\.\d+)?$/.test(String(v))) return serialToYMD(Number(v));
-  return String(v).slice(0, 10);
-}
 function buildRows() {
   const sheet = currentSheet(); if (!sheet) { gRows = []; return; }
   sheetCols = {}; for (const k in SHEETCOLS) sheetCols[k] = idxOf(sheet.headers, SHEETCOLS[k]);
@@ -702,29 +675,30 @@ function buildRows() {
     const name = (get(row, c.first) + " " + get(row, c.last)).trim();
     const order = String(get(row, c.order) ?? "");
     const reg = String(get(row, c.status) ?? "").trim().toUpperCase() === "REGISTERED";
-    const pass = String((c.pass !== -1 ? get(row, c.pass) : (c.key !== -1 ? get(row, c.key) : "")) ?? "");
-    const date = c.date !== -1 ? normDate(get(row, c.date)) : "";
+    const item = String(get(row, c.item) ?? "");
+    const qty = String(get(row, c.qty) ?? "");
     const dt = String(get(row, c.dt) ?? "").replace("T", " ").slice(0, 16);
-    return { name, order, pass, date, reg, dt };
+    return { name, order, item, qty, reg, dt };
   });
 }
 function showActiveSheet() { buildRows(); renderSheet($("sheetSearch").value.trim()); }
 
 function renderSheet(q) {
   const sheet = currentSheet();
-  if (!sheet) { $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Pick worksheets above and tap Load.</td></tr>'; $("sheetMeta").textContent = ""; return; }
+  if (!sheet) { $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Choose a worksheet above to view its guests.</td></tr>'; $("sheetMeta").textContent = ""; return; }
   const ql = (q || "").toLowerCase();
   let rows = gRows.filter((r) => !ql || r.name.toLowerCase().includes(ql) || r.order.toLowerCase().includes(ql));
   const { key, dir } = gSort;
   rows.sort((a, b) => {
     let av = a[key], bv = b[key];
-    if (key === "order") { const na = Number(av), nb = Number(bv); if (!isNaN(na) && !isNaN(nb)) { av = na; bv = nb; } else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); } }
+    if (key === "order" || key === "qty") { const na = Number(av), nb = Number(bv); if (!isNaN(na) && !isNaN(nb)) { av = na; bv = nb; } else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); } }
     else if (key === "reg") { av = a.reg ? 1 : 0; bv = b.reg ? 1 : 0; }
     else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); }
     return av < bv ? -dir : av > bv ? dir : 0;
   });
   $("gtbody").innerHTML = rows.length ? rows.map((r) =>
-    '<tr><td class="nm">' + esc(r.name || "\u2014") + '</td><td>#' + esc(r.order) + '</td><td>' + esc(r.pass) + '</td><td>' + esc(r.date) + '</td>' +
+    '<tr><td class="nm">' + esc(r.name || "\u2014") + '</td><td>#' + esc(r.order) + '</td>' +
+    '<td class="item">' + esc(r.item) + '</td><td class="qty">' + esc(r.qty) + '</td>' +
     '<td><span class="badge ' + (r.reg ? "reg" : "pen") + '">' + (r.reg ? "Registered" : "Pending") + '</span></td>' +
     '<td class="dtc">' + esc(r.dt) + '</td></tr>'
   ).join("") : '<tr><td colspan="6" class="sheet-empty">No matching guests.</td></tr>';
@@ -733,7 +707,7 @@ function renderSheet(q) {
   $("sheetMeta").innerHTML = "<span>" + esc(activeSheet) + " \u00b7 " + sheet.count + " rows \u00b7 " + regd + " checked in</span>";
 }
 $("sheetSearch").addEventListener("input", (e) => renderSheet(e.target.value.trim()));
-$("sheetRefresh").onclick = () => loadSheets(true);
+$("sheetRefresh").onclick = () => { if (activeSheet) selectSheet(activeSheet, true); };
 $("gtable").querySelector("thead").addEventListener("click", (e) => {
   const th = e.target.closest("th[data-k]"); if (!th) return;
   const k = th.dataset.k;
@@ -796,7 +770,8 @@ function showView(name) {
   document.querySelectorAll("main .view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
   $("viewPill").textContent = labels[name] || "";
   document.body.classList.remove("nav-open");
-  if (name === "guests") { loadTabs(); if (sheetsStale && selectedTabs.size) loadSheets(true); }
+  document.body.classList.toggle("view-guests", name === "guests");
+  if (name === "guests") { loadTabs(); if (sheetsStale && activeSheet) selectSheet(activeSheet, true); }
   if (name === "settings") openSettings();
 }
 document.getElementById("nav").addEventListener("click", (e) => {
