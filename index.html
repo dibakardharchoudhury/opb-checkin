@@ -161,22 +161,29 @@
   .placeholder h3 { font-family:"Playfair Display",serif; color:var(--maroon); font-size:22px; margin:0 0 6px; }
   .placeholder p { margin:0 auto; max-width:340px; font-size:14px; line-height:1.6; }
 
-  /* ---- live guest list (Excel sheet view) ---- */
+  /* ---- live guest list: sortable table ---- */
   .sheetbar { display:flex; gap:10px; margin-bottom:10px; }
   .sheetbar input { flex:1; }
   .sheetbar button { flex:0 0 52px; font-size:20px; padding:10px; line-height:1; }
   .sheetmeta { font-size:12px; color:var(--muted); margin:0 2px 12px; display:flex; justify-content:space-between; gap:10px; }
-  .sheetlist { display:flex; flex-direction:column; gap:8px; }
-  .grow { background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:14px; padding:11px 14px;
-    display:flex; align-items:center; gap:12px; box-shadow:0 4px 12px rgba(122,18,32,.06); }
-  .grow .who { min-width:0; flex:1; }
-  .grow .who .nm { font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .grow .who .meta { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .grow .rt { text-align:right; flex:0 0 auto; }
+  .tablewrap { overflow:auto; -webkit-overflow-scrolling:touch; border:1px solid rgba(217,164,65,.5);
+    border-radius:16px; background:var(--ivory); box-shadow:0 12px 34px rgba(122,18,32,.12); max-height:calc(100dvh - 210px); }
+  .gtable { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; min-width:600px; }
+  .gtable thead th { position:sticky; top:0; z-index:1; text-align:left; padding:12px 14px; white-space:nowrap;
+    font-size:11.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--maroon); cursor:pointer;
+    user-select:none; background:linear-gradient(180deg,#fff,#fbeed3); border-bottom:2px solid var(--gold); }
+  .gtable thead th:hover { background:linear-gradient(180deg,#fff,#f6e2be); }
+  .gtable thead th::after { content:"\2195"; opacity:.25; font-size:10px; margin-left:5px; }
+  .gtable thead th[data-dir="asc"]::after { content:"\25B2"; opacity:1; color:var(--gold); }
+  .gtable thead th[data-dir="desc"]::after { content:"\25BC"; opacity:1; color:var(--gold); }
+  .gtable tbody td { padding:11px 14px; white-space:nowrap; border-bottom:1px solid rgba(217,164,65,.2); }
+  .gtable tbody tr:nth-child(even) td { background:rgba(217,164,65,.06); }
+  .gtable tbody tr:hover td { background:rgba(217,164,65,.16); }
+  .gtable td.nm { font-weight:600; color:var(--ink); }
+  .gtable td.dtc { color:var(--muted); font-size:12.5px; }
   .badge { font-size:11px; font-weight:600; padding:5px 10px; border-radius:20px; white-space:nowrap; display:inline-block; }
   .badge.reg { background:#e3f3e9; color:#1f7a4d; border:1px solid #bfe3cd; }
   .badge.pen { background:#f4ece0; color:#8a6a3a; border:1px solid #e6d5b8; }
-  .grow .tm { font-size:11px; color:var(--muted); margin-top:3px; }
   .sheet-empty { text-align:center; color:var(--muted); padding:26px; line-height:1.6; }
 
   /* ---- volunteer / role management ---- */
@@ -243,6 +250,15 @@
   .ver-badge.stale .ver-dot { background:#ffd7bd; }
   @keyframes vpulse { 50%{ opacity:.3 } }
 
+  /* ---- Howrah Bridge skyline backdrop ---- */
+  .skyline { position:fixed; left:0; right:0; bottom:0; height:120px; z-index:0; pointer-events:none;
+    background:var(--maroon); opacity:.10;
+    -webkit-mask:url("howrah.svg") bottom left/auto 120px repeat-x; mask:url("howrah.svg") bottom left/auto 120px repeat-x; }
+  #login::after { content:""; position:absolute; left:0; right:0; bottom:0; height:120px; z-index:0; pointer-events:none;
+    background:var(--gold-2); opacity:.34;
+    -webkit-mask:url("howrah.svg") bottom left/auto 120px repeat-x; mask:url("howrah.svg") bottom left/auto 120px repeat-x; }
+  .loginCard { z-index:1; }
+
   @media (max-width:820px) {
     aside { position:fixed; inset:0 auto 0 0; transform:translateX(-100%); transition:transform .22s ease; }
     body.nav-open aside { transform:none; }
@@ -254,6 +270,7 @@
 </head>
 <body>
 <div class="garland" style="position:fixed;top:0;left:0;z-index:40"></div>
+<div class="skyline" aria-hidden="true"></div>
 
 <aside id="rail">
   <div class="brand">
@@ -371,7 +388,19 @@
         <button id="sheetRefresh" class="ghost" title="Refresh from Excel" aria-label="Refresh">↻</button>
       </div>
       <div id="sheetMeta" class="sheetmeta"></div>
-      <div id="sheetList" class="sheetlist"></div>
+      <div class="tablewrap">
+        <table class="gtable" id="gtable">
+          <thead><tr>
+            <th data-k="name">Name</th>
+            <th data-k="order">Order&nbsp;#</th>
+            <th data-k="pass">Pass</th>
+            <th data-k="date">Date</th>
+            <th data-k="reg">Status</th>
+            <th data-k="dt">Checked in</th>
+          </tr></thead>
+          <tbody id="gtbody"></tbody>
+        </table>
+      </div>
     </section>
     <section class="view" data-view="reports">
       <div class="placeholder">
@@ -444,8 +473,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v12"; // keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 11:11 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v13"; // keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 11:28 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -546,49 +575,74 @@ let sheetData = null, sheetCols = null, sheetLoaded = false;
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 function idxOf(headers, cands) { const l = headers.map((h) => String(h ?? "").trim().toLowerCase()); for (const c of cands) { const i = l.indexOf(c); if (i !== -1) return i; } return -1; }
 
+let gRows = [], gSort = { key: "order", dir: 1 };
+function serialToYMD(n) {
+  const ms = Date.UTC(1899, 11, 30) + Math.round(n) * 86400000;
+  const d = new Date(ms);
+  return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+}
+function normDate(v) {
+  if (v == null || v === "") return "";
+  if (typeof v === "number" || /^\d+(\.\d+)?$/.test(String(v))) return serialToYMD(Number(v));
+  return String(v).slice(0, 10);
+}
+function buildRows() {
+  const c = sheetCols, get = (row, i) => (i === -1 ? "" : row[i]);
+  gRows = sheetData.rows.map((row) => {
+    const name = (get(row, c.first) + " " + get(row, c.last)).trim();
+    const order = String(get(row, c.order) ?? "");
+    const reg = String(get(row, c.status) ?? "").trim().toUpperCase() === "REGISTERED";
+    const pass = String((c.pass !== -1 ? get(row, c.pass) : (c.key !== -1 ? get(row, c.key) : "")) ?? "");
+    const date = c.date !== -1 ? normDate(get(row, c.date)) : "";
+    const dt = String(get(row, c.dt) ?? "").replace("T", " ").slice(0, 16);
+    return { name, order, pass, date, reg, dt };
+  });
+}
 async function loadSheet(force) {
-  const meta = $("sheetMeta"), list = $("sheetList");
-  meta.textContent = "Loading the register\u2026"; if (force) list.innerHTML = "";
+  const meta = $("sheetMeta");
+  meta.textContent = "Loading the register\u2026";
   try {
     const r = await api("/api/sheet" + (force ? "?refresh=1" : ""));
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || "Failed to load");
     sheetData = j; sheetCols = {}; for (const k in SHEETCOLS) sheetCols[k] = idxOf(j.headers, SHEETCOLS[k]);
-    sheetLoaded = true;
+    buildRows(); sheetLoaded = true;
     renderSheet($("sheetSearch").value.trim());
   } catch (e) {
     meta.textContent = "";
-    list.innerHTML = '<div class="sheet-empty">Could not load the sheet.<br>' + esc(e.message || "") + "</div>";
+    $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Could not load the sheet.<br>' + esc(e.message || "") + "</td></tr>";
   }
 }
-
 function renderSheet(q) {
   if (!sheetData) return;
-  const c = sheetCols, ql = (q || "").toLowerCase(), get = (row, i) => (i === -1 ? "" : row[i]);
-  let regd = 0; const items = [];
-  for (const row of sheetData.rows) {
-    const name = (get(row, c.first) + " " + get(row, c.last)).trim();
-    const order = String(get(row, c.order) ?? "");
-    const isReg = String(get(row, c.status) ?? "").trim().toUpperCase() === "REGISTERED";
-    if (isReg) regd++;
-    if (ql && !(name.toLowerCase().includes(ql) || order.toLowerCase().includes(ql))) continue;
-    const pass = c.pass !== -1 ? get(row, c.pass) : (c.key !== -1 ? get(row, c.key) : "");
-    const date = c.date !== -1 ? String(get(row, c.date) ?? "").slice(0, 10) : "";
-    const dt = String(get(row, c.dt) ?? "").replace("T", " ").slice(0, 16);
-    items.push(
-      '<div class="grow"><div class="who"><div class="nm">' + esc(name || "\u2014") + '</div>' +
-      '<div class="meta">#' + esc(order) + (pass ? " \u00b7 " + esc(pass) : "") + (date ? " \u00b7 " + esc(date) : "") + '</div></div>' +
-      '<div class="rt"><span class="badge ' + (isReg ? "reg" : "pen") + '">' + (isReg ? "Registered" : "Pending") + '</span>' +
-      (dt ? '<div class="tm">' + esc(dt) + '</div>' : "") + '</div></div>'
-    );
-  }
-  $("sheetList").innerHTML = items.length ? items.join("") : '<div class="sheet-empty">No matching guests.</div>';
+  const ql = (q || "").toLowerCase();
+  let rows = gRows.filter((r) => !ql || r.name.toLowerCase().includes(ql) || r.order.toLowerCase().includes(ql));
+  const { key, dir } = gSort;
+  rows.sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (key === "order") { const na = Number(av), nb = Number(bv); if (!isNaN(na) && !isNaN(nb)) { av = na; bv = nb; } else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); } }
+    else if (key === "reg") { av = a.reg ? 1 : 0; bv = b.reg ? 1 : 0; }
+    else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); }
+    return av < bv ? -dir : av > bv ? dir : 0;
+  });
+  $("gtbody").innerHTML = rows.length ? rows.map((r) =>
+    '<tr><td class="nm">' + esc(r.name || "\u2014") + '</td><td>#' + esc(r.order) + '</td><td>' + esc(r.pass) + '</td><td>' + esc(r.date) + '</td>' +
+    '<td><span class="badge ' + (r.reg ? "reg" : "pen") + '">' + (r.reg ? "Registered" : "Pending") + '</span></td>' +
+    '<td class="dtc">' + esc(r.dt) + '</td></tr>'
+  ).join("") : '<tr><td colspan="6" class="sheet-empty">No matching guests.</td></tr>';
+  document.querySelectorAll("#gtable thead th").forEach((th) => { th.dataset.dir = th.dataset.k === key ? (dir > 0 ? "asc" : "desc") : ""; });
+  const regd = gRows.filter((r) => r.reg).length;
   const upd = sheetData.updatedAt ? new Date(sheetData.updatedAt).toLocaleTimeString() : "";
   $("sheetMeta").innerHTML = "<span>" + sheetData.count + " rows \u00b7 " + regd + " registered</span><span>updated " + esc(upd) + "</span>";
 }
-
 $("sheetSearch").addEventListener("input", (e) => renderSheet(e.target.value.trim()));
 $("sheetRefresh").onclick = () => loadSheet(true);
+$("gtable").querySelector("thead").addEventListener("click", (e) => {
+  const th = e.target.closest("th[data-k]"); if (!th) return;
+  const k = th.dataset.k;
+  if (gSort.key === k) gSort.dir *= -1; else gSort = { key: k, dir: 1 };
+  renderSheet($("sheetSearch").value.trim());
+});
 
 // ---- admin: volunteer / role management (Settings) ----
 function openSettings() {
