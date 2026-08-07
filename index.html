@@ -232,11 +232,10 @@
   .loginNote { font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5; }
 
   /* ---- build-version badge (bottom-left) ---- */
-  .ver-badge { position:fixed; left:14px; bottom:14px; z-index:60; display:none; align-items:center; gap:7px;
+  .ver-badge { position:fixed; left:14px; bottom:14px; z-index:60; display:inline-flex; align-items:center; gap:7px;
     font-size:11.5px; font-weight:600; color:var(--gold-2); background:rgba(92,13,24,.9);
     border:1px solid rgba(244,207,130,.4); padding:6px 12px; border-radius:22px; cursor:pointer;
     box-shadow:0 6px 16px rgba(20,4,8,.4); backdrop-filter:blur(4px); }
-  body.authed .ver-badge { display:inline-flex; }
   .ver-badge .ver-dot { width:8px; height:8px; border-radius:50%; background:var(--gold); flex:0 0 8px; }
   .ver-badge.checking .ver-dot { animation:vpulse 1s infinite; }
   .ver-badge.latest .ver-dot { background:#37c26b; }
@@ -445,7 +444,7 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v8"; // keep in lock-step with sw.js VERSION and version.json
+const APP_VERSION = "v9"; // keep in lock-step with sw.js VERSION and version.json
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -756,7 +755,12 @@ function initVersion() {
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const latest = (await r.json()).version;
-      if (latest && latest !== APP_VERSION) { updateReady = true; setState("stale", `${APP_VERSION} \u2192 ${latest} \u00b7 tap to update`, `A newer build (${latest}) is available.`); }
+      if (latest && latest !== APP_VERSION) {
+        updateReady = true;
+        setState("stale", `${APP_VERSION} \u2192 ${latest} \u00b7 tap to update`, `A newer build (${latest}) is available.`);
+        // Self-heal a stuck build: hard-update once per session without a user tap.
+        if (!sessionStorage.getItem("opb_selfupdate")) { sessionStorage.setItem("opb_selfupdate", "1"); badge.click(); }
+      }
       else { updateReady = false; setState("latest", APP_VERSION, `You're on the latest build (${APP_VERSION}).`); }
     } catch { setState("", APP_VERSION, `Build ${APP_VERSION}`); }
   }
