@@ -20,13 +20,15 @@ let cached = { token: null, exp: 0 };
 
 export async function getAccessToken() {
   if (cached.token && cached.exp - Date.now() > 60_000) return cached.token;
-  const body = new URLSearchParams({
+  const params = {
     client_id: process.env.OPB_CLIENT_ID,
-    client_secret: process.env.OPB_CLIENT_SECRET || "",
     grant_type: "refresh_token",
     refresh_token: process.env.OPB_REFRESH_TOKEN,
     scope: SCOPE,
-  });
+  };
+  // Confidential clients send a secret; a public client (no secret) must omit it.
+  if (process.env.OPB_CLIENT_SECRET) params.client_secret = process.env.OPB_CLIENT_SECRET;
+  const body = new URLSearchParams(params);
   const r = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

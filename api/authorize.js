@@ -3,31 +3,26 @@
 // workbook owner (osloprobaseebangali@outlook.com); MFA/passkey is handled by
 // Microsoft in the browser at that moment. Nothing here stores a password.
 //
-// Prereqs (all free, no tenant admin):
-//   1. Register an app at https://entra.microsoft.com -> App registrations -> New:
-//        - Supported account types: "Personal Microsoft accounts only" (or
-//          "…and personal Microsoft accounts").
-//        - Platform: Web. Redirect URI: http://localhost:53682/callback
-//        - Certificates & secrets -> new client secret (copy the VALUE).
-//        - API permissions -> Microsoft Graph -> Delegated -> Files.ReadWrite,
-//          offline_access (openid, profile). No admin consent needed for personal files.
-//   2. Set env before running:
-//        $env:OPB_CLIENT_ID="...";  $env:OPB_CLIENT_SECRET="..."
-//   3. node authorize.js   -> opens the sign-in URL, then prints the refresh token.
+// The app registration is a PUBLIC client (no client secret). Just run:
+//     cd webapp/api
+//     npm run authorize
+// A browser opens; sign in as the workbook owner. The refresh token is then stored
+// DIRECTLY into the App Service setting OPB_REFRESH_TOKEN via `az` (you must be
+// `az login`-ed) — it is never printed. If az storing fails it falls back to printing.
 //
-// Paste the printed refresh token into the App Service setting OPB_REFRESH_TOKEN.
+// Overridable via env: OPB_CLIENT_ID, OPB_APP, OPB_RG.
 
 import http from "node:http";
 import crypto from "node:crypto";
-import { exec } from "node:child_process";
+import { exec, execFile } from "node:child_process";
 
-const CLIENT_ID = process.env.OPB_CLIENT_ID;
-const CLIENT_SECRET = process.env.OPB_CLIENT_SECRET || "";
+const CLIENT_ID = process.env.OPB_CLIENT_ID || "b56289aa-27f5-4380-a2cf-58a829e7c638";
+const CLIENT_SECRET = process.env.OPB_CLIENT_SECRET || ""; // public client: none
+const APP = process.env.OPB_APP || "opb-checkin-api";
+const RG = process.env.OPB_RG || "rg-opb-checkin";
 const REDIRECT = "http://localhost:53682/callback";
 const AUTH = "https://login.microsoftonline.com/consumers/oauth2/v2.0";
 const SCOPE = "Files.ReadWrite offline_access openid profile";
-
-if (!CLIENT_ID) { console.error("Set OPB_CLIENT_ID (and OPB_CLIENT_SECRET) first."); process.exit(1); }
 
 const verifier = crypto.randomBytes(32).toString("base64url");
 const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
@@ -39,6 +34,14 @@ const authUrl = `${AUTH}/authorize?` + new URLSearchParams({
   prompt: "select_account",
 }).toString();
 
+// Store the token straight into App Service so the secret never touches the console.
+function storeToken(token) {
+  return new Promise((resolve) => {
+    execFile("az", ["webapp", "config", "appsettings", "set", "-n", APP, "-g", RG,
+      "--settings", `OPB_REFRESH_TOKEN=${token}`], { shell: true }, (err) => resolve(!err));
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   if (!req.url.startsWith("/callback")) { res.writeHead(404).end(); return; }
   const url = new URL(req.url, REDIRECT);
@@ -47,20 +50,24 @@ const server = http.createServer(async (req, res) => {
   if (!code) { res.writeHead(400).end("no code: " + (url.searchParams.get("error_description") || "")); return; }
 
   try {
-    const body = new URLSearchParams({
-      client_id: CLIENT_ID, client_secret: CLIENT_SECRET, grant_type: "authorization_code",
-      code, redirect_uri: REDIRECT, scope: SCOPE, code_verifier: verifier,
-    });
+    const params = { client_id: CLIENT_ID, grant_type: "authorization_code",
+      code, redirect_uri: REDIRECT, scope: SCOPE, code_verifier: verifier };
+    if (CLIENT_SECRET) params.client_secret = CLIENT_SECRET;
     const r = await fetch(`${AUTH}/token`, {
-      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body,
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(params),
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error_description || j.error || r.status);
     res.writeHead(200, { "Content-Type": "text/plain" }).end("Done — you can close this tab and return to the terminal.");
-    console.log("\n==================  REFRESH TOKEN  ==================\n");
-    console.log(j.refresh_token);
-    console.log("\n====================================================");
-    console.log("Set it as the App Service setting OPB_REFRESH_TOKEN.\n");
+
+    const stored = await storeToken(j.refresh_token);
+    if (stored) {
+      console.log("\nRefresh token stored in App Service (OPB_REFRESH_TOKEN). Scanning + Guest List are now live.\n");
+    } else {
+      console.log("\nCould not store via az. Set this value as OPB_REFRESH_TOKEN manually:\n");
+      console.log(j.refresh_token + "\n");
+    }
   } catch (e) {
     res.writeHead(500).end("token exchange failed: " + (e?.message || e));
     console.error(e);
@@ -70,7 +77,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(53682, () => {
-  console.log("Opening sign-in in your browser…\nIf it doesn't open, paste this URL:\n" + authUrl + "\n");
+  console.log("Opening sign-in in your browser - sign in as the workbook OWNER (osloprobaseebangali@outlook.com).");
+  console.log("If it doesn't open, paste this URL:\n" + authUrl + "\n");
   const cmd = process.platform === "win32" ? `start "" "${authUrl}"`
     : process.platform === "darwin" ? `open "${authUrl}"` : `xdg-open "${authUrl}"`;
   exec(cmd);
