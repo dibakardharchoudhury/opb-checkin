@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#005e92" />
+<title>OPB Check-in</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  :root { --opb:#005e92; --brown:#8f5037; --ok:#1b8a3a; --warn:#c77b00; --err:#c0261f; --bg:#777; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; }
+  body { font-family:system-ui,"Segoe UI",Roboto,sans-serif; background:#1d1d1d; color:#fff;
+         display:flex; flex-direction:column; min-height:100dvh; }
+  header { display:flex; align-items:center; gap:10px; padding:12px 14px; background:var(--opb); }
+  header img { height:34px; width:auto; }
+  header h1 { font-size:18px; margin:0; font-weight:700; letter-spacing:.3px; }
+  main { flex:1; display:flex; flex-direction:column; gap:12px; padding:14px; max-width:520px; width:100%; margin:0 auto; }
+  #viewport { position:relative; aspect-ratio:1/1; width:100%; background:#000; border-radius:16px; overflow:hidden;
+              box-shadow:0 0 0 3px rgba(255,255,255,.08) inset; }
+  #video { width:100%; height:100%; object-fit:cover; }
+  #reticle { position:absolute; inset:14%; border:3px solid rgba(255,255,255,.85); border-radius:14px;
+             box-shadow:0 0 0 2000px rgba(0,0,0,.28); pointer-events:none; }
+  .banner { border-radius:14px; padding:16px; text-align:center; font-weight:700; font-size:19px; line-height:1.35;
+            background:#333; min-height:60px; display:flex; align-items:center; justify-content:center; }
+  .banner.ok { background:var(--ok); } .banner.warn { background:var(--warn); } .banner.err { background:var(--err); }
+  .banner.busy { background:var(--brown); }
+  .sub { text-align:center; color:#d8d8d8; font-size:14px; min-height:20px; }
+  .row { display:flex; gap:10px; }
+  .row > * { flex:1; }
+  button { font:inherit; font-weight:600; border:0; border-radius:12px; padding:14px; color:#fff; background:var(--opb);
+           }
+  button.ghost { background:#3a3a3a; }
+  button:disabled { opacity:.5; }
+  input { font:inherit; padding:13px; border-radius:12px; border:1px solid #555; background:#2a2a2a; color:#fff; width:100%; }
+  .counter { display:flex; justify-content:space-between; font-size:13px; color:#bbb; }
+  .counter b { color:#fff; font-size:16px; }
+  footer { padding:10px 14px; text-align:center; color:#888; font-size:12px; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <img src="icon.svg" alt="OPB" />
+  <h1>OPB Check-in</h1>
+</header>
+
+<main>
+  <div id="viewport">
+    <video id="video" playsinline muted></video>
+    <div id="reticle"></div>
+  </div>
+
+  <div id="banner" class="banner">Point the camera at a guest's QR code</div>
+  <div id="sub" class="sub"></div>
+
+  <div class="row">
+    <button id="startBtn">Start camera</button>
+    <button id="rescanBtn" class="ghost hidden">Scan next</button>
+  </div>
+
+  <div class="row">
+    <input id="manual" inputmode="numeric" placeholder="Or type order number" />
+    <button id="manualBtn" class="ghost" style="flex:0 0 96px">Check</button>
+  </div>
+
+  <div class="counter">
+    <span>This session: <b id="okCount">0</b> registered</span>
+    <span><b id="errCount">0</b> issues</span>
+  </div>
+</main>
+
+<footer>OPB · Oslo Probasee Bangali — updates are recorded securely in the official register.</footer>
+
+<script>
+// ---- Config -----------------------------------------------------------------
+// Point this at your deployed backend (App Service). No secrets live in this page.
+const BACKEND_URL = "https://opb-checkin-api.azurewebsites.net";
+const COOLDOWN_MS = 2500;         // ignore the same code re-read within this window
+// -----------------------------------------------------------------------------
+
+const $ = (id) => document.getElementById(id);
+const banner = $("banner"), sub = $("sub"), video = $("video");
+let stream = null, scanning = false, lastValue = "", lastAt = 0, zxingReader = null;
+let okCount = 0, errCount = 0;
+
+function setBanner(text, cls) { banner.className = "banner" + (cls ? " " + cls : ""); banner.textContent = text; }
+function beep(ok) {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = ok ? 880 : 220; o.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(.15, ac.currentTime); o.start();
+    o.stop(ac.currentTime + (ok ? .12 : .3));
+  } catch {}
+  if (navigator.vibrate) navigator.vibrate(ok ? 60 : [80, 60, 80]);
+}
+
+async function submitOrder(raw) {
+  const orderNumber = String(raw).split(";")[0].trim();
+  if (!orderNumber) return;
+  setBanner("Verifying…", "busy"); sub.textContent = "Order " + orderNumber;
+  try {
+    const r = await fetch(BACKEND_URL + "/api/register", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderNumber }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Request failed");
+    const d = j.decision;
+    const cls = d === "SUCCESS" ? "ok" : d === "ALREADY" ? "warn" : "err";
+    setBanner(j.response || "Done", cls);
+    sub.textContent = j.customername ? "👤 " + j.customername + "  ·  📦 " + orderNumber : "";
+    if (d === "SUCCESS") { okCount++; $("okCount").textContent = okCount; beep(true); }
+    else { errCount++; $("errCount").textContent = errCount; beep(false); }
+  } catch (e) {
+    setBanner("Network error — try again", "err"); sub.textContent = e.message || "";
+    errCount++; $("errCount").textContent = errCount; beep(false);
+  }
+}
+
+function onDetected(value) {
+  const now = Date.now();
+  if (value === lastValue && now - lastAt < COOLDOWN_MS) return;
+  lastValue = value; lastAt = now;
+  submitOrder(value);
+}
+
+async function startCamera() {
+  if (scanning) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    video.srcObject = stream; await video.play();
+    scanning = true; $("startBtn").classList.add("hidden");
+    setBanner("Scanning… point at a QR code");
+    if ("BarcodeDetector" in window) {
+      const det = new BarcodeDetector({ formats: ["qr_code"] });
+      const loop = async () => {
+        if (!scanning) return;
+        try { const codes = await det.detect(video); if (codes.length) onDetected(codes[0].rawValue); } catch {}
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+    } else {
+      await loadZxing();
+      zxingReader = new ZXingBrowser.BrowserQRCodeReader();
+      zxingReader.decodeFromVideoElement(video, (res) => { if (res) onDetected(res.getText()); });
+    }
+  } catch (e) {
+    setBanner("Camera unavailable — use manual entry", "err"); sub.textContent = e.message || "";
+  }
+}
+
+function loadZxing() {
+  return new Promise((resolve, reject) => {
+    if (window.ZXingBrowser) return resolve();
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js";
+    s.onload = resolve; s.onerror = () => reject(new Error("scanner library failed to load"));
+    document.head.appendChild(s);
+  });
+}
+
+$("startBtn").onclick = startCamera;
+$("rescanBtn").onclick = () => { lastValue = ""; setBanner("Scanning… point at a QR code"); sub.textContent = ""; };
+$("manualBtn").onclick = () => { const v = $("manual").value.trim(); if (v) { submitOrder(v); $("manual").value = ""; } };
+$("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("manualBtn").click(); });
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

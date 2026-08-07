@@ -1,0 +1,17 @@
+{
+  "name": "opb-checkin-backend",
+  "version": "1.0.0",
+  "description": "Delegated Microsoft Graph backend (Express on App Service) that updates the OPB Excel Online workbook from QR scans.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "authorize": "node authorize.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.5.1"
+  }
+}
