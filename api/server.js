@@ -7,8 +7,8 @@
 //
 // Security posture mirrors the NorkappTrip proxy: CORS fails closed to the allowed
 // origin(s), per-IP rate limits stop scripted abuse, and framework details are hidden.
-// NOTE: end-user auth (volunteer/admin login) is intentionally deferred to a later
-// phase; until then keep ALLOWED_ORIGINS tight and treat the endpoint as semi-public.
+// Volunteer/admin access is gated by social sign-in (Google / Microsoft) verified in
+// auth.js against an email allowlist; the scan and sheet endpoints require a session.
 
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -16,6 +16,7 @@ import {
   getAccessToken, workbookBase, openSession, closeSession, readTable, patchRow,
 } from "./graph.js";
 import { evaluateScan } from "./rules.js";
+import { verifyProviderToken, resolveRole, issueSession, requireAuth } from "./auth.js";
 
 const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
@@ -32,7 +33,7 @@ function applyCors(req, res) {
     res.set("Access-Control-Allow-Origin", allow);
     res.set("Vary", "Origin");
     res.set("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
     res.set("Access-Control-Max-Age", "600");
   }
 }
@@ -58,11 +59,33 @@ const rlOpts = { standardHeaders: true, legacyHeaders: false, keyGenerator: clie
   message: { error: "Too many requests — slow down and retry shortly." } };
 app.use(rateLimit({ windowMs: 60_000, max: 120, ...rlOpts }));
 const scanLimiter = rateLimit({ windowMs: 60_000, max: 60, ...rlOpts });
+// Tight limiter for sign-in; only FAILED attempts count so a valid user is never blocked.
+const authLimiter = rateLimit({ windowMs: 60_000, max: 15, skipSuccessfulRequests: true, ...rlOpts });
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+// POST /api/auth { provider, credential } -> { token, name, role, email }
+// Verifies the Google/Microsoft ID token, checks the email allowlist, issues a session.
+app.post("/api/auth", authLimiter, async (req, res) => {
+  const { provider, credential } = req.body || {};
+  if (!provider || !credential) return res.status(400).json({ error: "provider and credential required" });
+  try {
+    const { email, name } = await verifyProviderToken(provider, credential);
+    const role = resolveRole(email);
+    if (!role) return res.status(403).json({ error: "This account is not approved for check-in access." });
+    const token = await issueSession({ email, name, role });
+    res.json({ token, name, role, email });
+  } catch (e) {
+    console.warn("auth failed:", e?.message || e);
+    res.status(401).json({ error: "Sign-in could not be verified." });
+  }
+});
+
+// GET /api/me -> current session (used by the SPA to restore a session on reload)
+app.get("/api/me", requireAuth(), (req, res) => res.json(req.user));
+
 // POST /api/register { orderNumber }  ->  { response, customername, decision }
-app.post("/api/register", scanLimiter, async (req, res) => {
+app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
   const raw = (req.body && req.body.orderNumber) != null ? String(req.body.orderNumber) : "";
   // Accept the raw QR too; take the part before the first ';' like the Power App did.
   const orderNumber = raw.split(";")[0].trim();
@@ -93,7 +116,7 @@ app.post("/api/register", scanLimiter, async (req, res) => {
 // Short-cached so opening the Guest List doesn't hammer Graph. NOTE: this returns
 // guest names/PII — gate it behind the volunteer/admin login when that phase lands.
 let sheetCache = { at: 0, data: null };
-app.get("/api/sheet", async (req, res) => {
+app.get("/api/sheet", requireAuth(), async (req, res) => {
   const fresh = req.query.refresh === "1";
   if (!fresh && sheetCache.data && Date.now() - sheetCache.at < 15_000) return res.json(sheetCache.data);
 

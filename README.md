@@ -38,6 +38,27 @@ Both workbook variants are supported automatically (see `rules.js` column detect
 - **2025 style** (`App_Source` Table1): `RegistrationID, UniqueKey, First/Last, Item, Date, PassType, FoodOption, Quantity, Status, DateTime`.
 - **2026 style**: `Order Number, UniqueKey, First/Last, Quantity, AppKey, Status, DateTime`.
 
+## Sign-in (Google / Microsoft social login)
+
+Volunteers sign in with **Google** or **Microsoft (personal/Live)**; the backend
+verifies the provider ID token (signature, issuer, audience, expiry, `email_verified`)
+and checks the email against an **allowlist** before issuing a short-lived session JWT.
+The scan and guest-list endpoints require that session; `ADMIN_EMAILS` get the admin role.
+
+Set up (all free, no admin):
+1. **Google** — Google Cloud Console → *APIs & Services → Credentials → OAuth client ID*
+   (type *Web*); add your Pages URL as an authorized JavaScript origin. Copy the client ID.
+2. **Microsoft** — an app registration (personal accounts) with a **SPA** redirect URI =
+   your Pages URL. Copy the client ID. (Can be a separate registration from the Graph one.)
+3. Put both IDs in `webapp/index.html` → `AUTH_CFG`. Set the allowlist + IDs on the backend:
+   ```powershell
+   az webapp config appsettings set -n opb-checkin-api -g rg-opb-checkin --settings `
+     GOOGLE_CLIENT_ID="<google id>" MS_CLIENT_ID="<ms id>" `
+     ADMIN_EMAILS="you@gmail.com" USER_EMAILS="vol1@gmail.com,vol2@live.com"
+   ```
+`SESSION_SECRET` is generated automatically by `provision.ps1`.
+
+
 ## One-time setup
 
 ### 1. Register the app (free, no tenant admin)

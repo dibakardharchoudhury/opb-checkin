@@ -12,6 +12,7 @@
   "engines": { "node": ">=20" },
   "dependencies": {
     "express": "^4.21.0",
-    "express-rate-limit": "^7.5.1"
+    "express-rate-limit": "^7.5.1",
+    "jose": "^5.9.6"
   }
 }

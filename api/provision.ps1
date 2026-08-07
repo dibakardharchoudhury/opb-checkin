@@ -46,11 +46,18 @@ az webapp create -n $App -g $Rg -p $Plan --runtime "NODE:20-lts" 2>&1 | Out-Null
 "webapp exit=$LASTEXITCODE"
 
 "=== base app settings (secrets set separately, once) ==="
+# A random session-signing secret for the login JWTs (generated once per provision).
+$sessionSecret = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 48 | ForEach-Object { [char]$_ })
 az webapp config appsettings set -n $App -g $Rg --settings `
   ALLOWED_ORIGINS="$PagesOrigin" `
   GRAPH_WORKBOOK="path:/Oslo Durgotsav 2026_Test.xlsx" `
   TABLE_NAME="Table1" `
   TZ_NAME="Europe/Oslo" `
+  SESSION_SECRET="$sessionSecret" `
+  ADMIN_EMAILS="" `
+  USER_EMAILS="" `
+  GOOGLE_CLIENT_ID="" `
+  MS_CLIENT_ID="" `
   SCM_DO_BUILD_DURING_DEPLOYMENT="true" `
   WEBSITE_NODE_DEFAULT_VERSION="~20" 2>&1 | Out-Null
 "settings exit=$LASTEXITCODE"
