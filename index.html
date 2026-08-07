@@ -186,6 +186,29 @@
   .badge.pen { background:#f4ece0; color:#8a6a3a; border:1px solid #e6d5b8; }
   .sheet-empty { text-align:center; color:var(--muted); padding:26px; line-height:1.6; }
 
+  /* ---- event-session picker (scan) & worksheet tab picker (guest list) ---- */
+  .sesspick { display:flex; align-items:center; gap:10px; margin:0 0 12px; padding:11px 14px;
+    background:linear-gradient(180deg,#fff,#fbeed3); border:1.5px solid var(--gold); border-radius:14px; }
+  .sesspick svg { width:18px; height:18px; color:var(--maroon); flex:0 0 auto; }
+  .sesspick label { font-size:11.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--maroon); flex:0 0 auto; }
+  .sesspick select { flex:1; min-width:0; padding:10px 12px; border-radius:11px; border:1.5px solid rgba(217,164,65,.7);
+    background:#fff; color:var(--ink); font:inherit; font-weight:600; }
+  .sesspick.unset select { border-color:var(--err); }
+  .tabpick { margin:0 0 12px; padding:12px 14px; background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:14px; }
+  .tabpick .lbl { font-size:11.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--maroon); margin-bottom:8px; }
+  .tabpick .chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .tabchip { display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:20px; cursor:pointer;
+    font-size:13px; font-weight:600; color:var(--maroon); background:#fff; border:1.5px solid rgba(217,164,65,.6); user-select:none; }
+  .tabchip.on { background:var(--maroon); color:#fff; border-color:var(--maroon); }
+  .tabpick .go { display:flex; gap:8px; align-items:center; }
+  .tabpick .go button { flex:0 0 auto; padding:10px 18px; }
+  .tabpick .hint { font-size:12px; color:var(--muted); }
+  .sheettabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; }
+  .sheettabs button { padding:8px 14px; border-radius:12px; font-size:13px; font-weight:600; background:#fff;
+    color:var(--maroon); border:1.5px solid rgba(217,164,65,.6); box-shadow:none; }
+  .sheettabs button::after { content:none; }
+  .sheettabs button.on { background:linear-gradient(180deg,var(--maroon),#5f0d18); color:#fff; border-color:var(--maroon); }
+
   /* ---- volunteer / role management ---- */
   .userform { display:flex; gap:8px; margin-bottom:12px; }
   .userform input { flex:1; min-width:0; }
@@ -348,6 +371,11 @@
           Scan a guest's pass
         </div>
         <div class="body">
+          <div class="sesspick unset" id="scanSessBox">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <label for="scanSheet">Event session</label>
+            <select id="scanSheet"><option value="">Choose the day / meal…</option></select>
+          </div>
           <div id="viewport">
             <video id="video" playsinline muted></video>
             <div id="reticle"></div>
@@ -383,6 +411,15 @@
       </div>
     </section>
     <section class="view" data-view="guests">
+      <div class="tabpick">
+        <div class="lbl">Worksheets to load</div>
+        <div class="chips" id="tabChips"><span class="hint">Loading tabs…</span></div>
+        <div class="go">
+          <button id="tabLoad">Load selected</button>
+          <span class="hint" id="tabHint">Pick one or more event tabs, then Load.</span>
+        </div>
+      </div>
+      <div class="sheettabs" id="sheetTabs"></div>
       <div class="sheetbar">
         <input id="sheetSearch" placeholder="Search name or order number" />
         <button id="sheetRefresh" class="ghost" title="Refresh from Excel" aria-label="Refresh">↻</button>
@@ -473,8 +510,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v13"; // keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 11:28 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v14"; // keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 11:37 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -497,19 +534,24 @@ function beep(ok) {
 async function submitOrder(raw) {
   const orderNumber = String(raw).split(";")[0].trim();
   if (!orderNumber) return;
-  setBanner("Verifying…", "busy"); sub.textContent = "Order " + orderNumber;
+  const sheet = $("scanSheet").value;
+  if (!sheet) {
+    setBanner("Pick the event session first", "warn"); sub.textContent = "";
+    $("scanSessBox").classList.add("unset"); $("scanSheet").focus(); beep(false); return;
+  }
+  setBanner("Verifying…", "busy"); sub.textContent = sheet + "  ·  order " + orderNumber;
   try {
     const r = await api("/api/register", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderNumber }),
+      body: JSON.stringify({ orderNumber, sheet }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || "Request failed");
     const d = j.decision;
     const cls = d === "SUCCESS" ? "ok" : d === "ALREADY" ? "warn" : "err";
     setBanner(j.response || "Done", cls);
-    sub.textContent = j.customername ? "👤 " + j.customername + "  ·  📦 " + orderNumber : "";
-    if (d === "SUCCESS") { okCount++; $("okCount").textContent = okCount; beep(true); sheetLoaded = false; }
+    sub.textContent = (j.customername ? "👤 " + j.customername + "  ·  " : "") + "🎫 " + sheet;
+    if (d === "SUCCESS") { okCount++; $("okCount").textContent = okCount; beep(true); sheetsStale = true; }
     else { errCount++; $("errCount").textContent = errCount; beep(false); }
   } catch (e) {
     setBanner("Network error — try again", "err"); sub.textContent = e.message || "";
@@ -564,18 +606,84 @@ $("rescanBtn").onclick = () => { lastValue = ""; setBanner("Scanning… point at
 $("manualBtn").onclick = () => { const v = $("manual").value.trim(); if (v) { submitOrder(v); $("manual").value = ""; } };
 $("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("manualBtn").click(); });
 
-// ---- live guest list (reads the workbook via the backend /api/sheet) ----
+// ---- worksheet tabs (event sessions) + live guest list ----
 const SHEETCOLS = {
   order:["registrationid","order number","ordernumber","order"],
   first:["first name","firstname"], last:["last name","lastname"],
   date:["date"], pass:["passtype","pass type"], key:["appkey","uniquekey"],
   status:["status"], dt:["datetime","date time"],
 };
-let sheetData = null, sheetCols = null, sheetLoaded = false;
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 function idxOf(headers, cands) { const l = headers.map((h) => String(h ?? "").trim().toLowerCase()); for (const c of cands) { const i = l.indexOf(c); if (i !== -1) return i; } return -1; }
 
-let gRows = [], gSort = { key: "order", dir: 1 };
+// Tab state shared by the scan session picker and the Guest List multi-select.
+let allTabs = [], tabsFetched = false;
+const selectedTabs = new Set();          // worksheets chosen for the Guest List
+let loadedSheets = [], activeSheet = "", sheetsStale = false;
+let sheetCols = null, gRows = [], gSort = { key: "order", dir: 1 };
+
+async function loadTabs(force) {
+  if (tabsFetched && !force) return;
+  try {
+    const r = await api("/api/tabs"); const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Failed");
+    allTabs = j.tabs || []; tabsFetched = true;
+    // Populate the scan session dropdown (restore the volunteer's last pick).
+    const saved = localStorage.getItem("opb_scan_sheet") || "";
+    const sel = $("scanSheet");
+    sel.innerHTML = '<option value="">Choose the day / meal…</option>' +
+      allTabs.map((t) => '<option value="' + esc(t) + '"' + (t === saved ? " selected" : "") + ">" + esc(t) + "</option>").join("");
+    if (saved && allTabs.includes(saved)) $("scanSessBox").classList.remove("unset");
+    renderTabChips();
+  } catch {
+    $("tabChips").innerHTML = '<span class="hint">Could not load worksheet list.</span>';
+    $("scanSheet").innerHTML = '<option value="">Could not load sessions</option>';
+  }
+}
+function renderTabChips() {
+  $("tabChips").innerHTML = allTabs.length
+    ? allTabs.map((t) => '<span class="tabchip' + (selectedTabs.has(t) ? " on" : "") + '" data-tab="' + esc(t) + '">' + esc(t) + "</span>").join("")
+    : '<span class="hint">No worksheets found.</span>';
+}
+$("tabChips").addEventListener("click", (e) => {
+  const chip = e.target.closest(".tabchip"); if (!chip) return;
+  const t = chip.dataset.tab;
+  if (selectedTabs.has(t)) selectedTabs.delete(t); else selectedTabs.add(t);
+  chip.classList.toggle("on");
+});
+$("tabLoad").onclick = () => loadSheets(false);
+$("scanSheet").addEventListener("change", (e) => {
+  const v = e.target.value; localStorage.setItem("opb_scan_sheet", v);
+  $("scanSessBox").classList.toggle("unset", !v);
+});
+
+async function loadSheets(force) {
+  const chosen = [...selectedTabs];
+  if (!chosen.length) { $("tabHint").textContent = "Select at least one worksheet first."; return; }
+  $("tabHint").textContent = ""; $("sheetMeta").textContent = "Loading the register…";
+  try {
+    const q = "tabs=" + encodeURIComponent(chosen.join(",")) + (force ? "&refresh=1" : "");
+    const r = await api("/api/sheet?" + q); const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Failed to load");
+    loadedSheets = j.sheets || []; sheetsStale = false;
+    if (!loadedSheets.some((s) => s.name === activeSheet)) activeSheet = loadedSheets.length ? loadedSheets[0].name : "";
+    renderSheetTabs(); showActiveSheet();
+  } catch (e) {
+    $("sheetMeta").textContent = "";
+    $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Could not load the sheet.<br>' + esc(e.message || "") + "</td></tr>";
+  }
+}
+function renderSheetTabs() {
+  $("sheetTabs").innerHTML = loadedSheets.map((s) =>
+    '<button data-sheet="' + esc(s.name) + '" class="' + (s.name === activeSheet ? "on" : "") + '">' +
+    esc(s.name) + " <b>(" + s.count + ")</b></button>").join("");
+}
+$("sheetTabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-sheet]"); if (!b) return;
+  activeSheet = b.dataset.sheet; renderSheetTabs(); showActiveSheet();
+});
+function currentSheet() { return loadedSheets.find((s) => s.name === activeSheet) || null; }
+
 function serialToYMD(n) {
   const ms = Date.UTC(1899, 11, 30) + Math.round(n) * 86400000;
   const d = new Date(ms);
@@ -587,8 +695,10 @@ function normDate(v) {
   return String(v).slice(0, 10);
 }
 function buildRows() {
+  const sheet = currentSheet(); if (!sheet) { gRows = []; return; }
+  sheetCols = {}; for (const k in SHEETCOLS) sheetCols[k] = idxOf(sheet.headers, SHEETCOLS[k]);
   const c = sheetCols, get = (row, i) => (i === -1 ? "" : row[i]);
-  gRows = sheetData.rows.map((row) => {
+  gRows = sheet.rows.map((row) => {
     const name = (get(row, c.first) + " " + get(row, c.last)).trim();
     const order = String(get(row, c.order) ?? "");
     const reg = String(get(row, c.status) ?? "").trim().toUpperCase() === "REGISTERED";
@@ -598,23 +708,11 @@ function buildRows() {
     return { name, order, pass, date, reg, dt };
   });
 }
-async function loadSheet(force) {
-  const meta = $("sheetMeta");
-  meta.textContent = "Loading the register\u2026";
-  try {
-    const r = await api("/api/sheet" + (force ? "?refresh=1" : ""));
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Failed to load");
-    sheetData = j; sheetCols = {}; for (const k in SHEETCOLS) sheetCols[k] = idxOf(j.headers, SHEETCOLS[k]);
-    buildRows(); sheetLoaded = true;
-    renderSheet($("sheetSearch").value.trim());
-  } catch (e) {
-    meta.textContent = "";
-    $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Could not load the sheet.<br>' + esc(e.message || "") + "</td></tr>";
-  }
-}
+function showActiveSheet() { buildRows(); renderSheet($("sheetSearch").value.trim()); }
+
 function renderSheet(q) {
-  if (!sheetData) return;
+  const sheet = currentSheet();
+  if (!sheet) { $("gtbody").innerHTML = '<tr><td colspan="6" class="sheet-empty">Pick worksheets above and tap Load.</td></tr>'; $("sheetMeta").textContent = ""; return; }
   const ql = (q || "").toLowerCase();
   let rows = gRows.filter((r) => !ql || r.name.toLowerCase().includes(ql) || r.order.toLowerCase().includes(ql));
   const { key, dir } = gSort;
@@ -632,11 +730,10 @@ function renderSheet(q) {
   ).join("") : '<tr><td colspan="6" class="sheet-empty">No matching guests.</td></tr>';
   document.querySelectorAll("#gtable thead th").forEach((th) => { th.dataset.dir = th.dataset.k === key ? (dir > 0 ? "asc" : "desc") : ""; });
   const regd = gRows.filter((r) => r.reg).length;
-  const upd = sheetData.updatedAt ? new Date(sheetData.updatedAt).toLocaleTimeString() : "";
-  $("sheetMeta").innerHTML = "<span>" + sheetData.count + " rows \u00b7 " + regd + " registered</span><span>updated " + esc(upd) + "</span>";
+  $("sheetMeta").innerHTML = "<span>" + esc(activeSheet) + " \u00b7 " + sheet.count + " rows \u00b7 " + regd + " checked in</span>";
 }
 $("sheetSearch").addEventListener("input", (e) => renderSheet(e.target.value.trim()));
-$("sheetRefresh").onclick = () => loadSheet(true);
+$("sheetRefresh").onclick = () => loadSheets(true);
 $("gtable").querySelector("thead").addEventListener("click", (e) => {
   const th = e.target.closest("th[data-k]"); if (!th) return;
   const k = th.dataset.k;
@@ -699,7 +796,7 @@ function showView(name) {
   document.querySelectorAll("main .view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
   $("viewPill").textContent = labels[name] || "";
   document.body.classList.remove("nav-open");
-  if (name === "guests" && !sheetLoaded) loadSheet(false);
+  if (name === "guests") { loadTabs(); if (sheetsStale && selectedTabs.size) loadSheets(true); }
   if (name === "settings") openSettings();
 }
 document.getElementById("nav").addEventListener("click", (e) => {
@@ -737,7 +834,7 @@ async function exchange(provider, credential) {
   } catch { setLoginErr("Network error \u2014 please try again."); }
 }
 
-function enterApp() { document.body.classList.add("authed"); updateUserChip(); showView("scan"); }
+function enterApp() { document.body.classList.add("authed"); updateUserChip(); loadTabs(); showView("scan"); }
 function signOut() {
   session = { token: "", name: "", role: "", email: "" };
   sessionStorage.removeItem("opb_tok");

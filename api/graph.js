@@ -78,6 +78,33 @@ export async function closeSession(token, base, session) {
   try { await gfetch(`${base}/closeSession`, { token, session, method: "POST", body: {} }); } catch { /* best effort */ }
 }
 
+// List the workbook's worksheets (tabs). Hidden sheets are skipped; order follows
+// the tab order shown in Excel so the UI can present them naturally.
+export async function listWorksheets(token, base, session) {
+  const j = await gfetch(`${base}/worksheets?$select=name,position,visibility`, { token, session });
+  return (j.value || [])
+    .filter((w) => (w.visibility || "Visible") === "Visible")
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map((w) => w.name);
+}
+
+// The first Excel table on a worksheet (event tabs carry exactly one). Null if none.
+export async function firstTableName(token, base, session, worksheet) {
+  const j = await gfetch(`${base}/worksheets/${encodeURIComponent(worksheet)}/tables?$select=name`, { token, session });
+  const t = (j.value || [])[0];
+  return t ? t.name : null;
+}
+
+// Fallback reader for worksheets without a table: use the used range and treat the
+// first row as headers. Only used for viewing (no index-stable patch is possible).
+export async function readWorksheetUsedRange(token, base, session, worksheet) {
+  const j = await gfetch(`${base}/worksheets/${encodeURIComponent(worksheet)}/usedRange(valuesOnly=true)?$select=values`, { token, session });
+  const values = j.values || [];
+  const headers = values.length ? values[0] : [];
+  const rows = values.slice(1).map((v, i) => ({ index: i, values: v }));
+  return { headers, rows };
+}
+
 export async function readTable(token, base, session, tableName) {
   const header = await gfetch(`${base}/tables/${encodeURIComponent(tableName)}/headerRowRange`, { token, session });
   const headers = (header.values && header.values[0]) || [];

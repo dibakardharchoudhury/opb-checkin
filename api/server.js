@@ -14,6 +14,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import {
   getAccessToken, workbookBase, openSession, closeSession, readTable, patchRow,
+  listWorksheets, firstTableName, readWorksheetUsedRange,
 } from "./graph.js";
 import { evaluateScan } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
@@ -117,11 +118,43 @@ app.post("/api/users/remove", requireAuth("admin"), async (req, res) => {
   catch (e) { res.status(500).json({ error: "Could not remove the user." }); }
 });
 
-// POST /api/register { orderNumber }  ->  { response, customername, decision }
+// Resolve the Excel table that backs a worksheet (event) tab. Falls back to the
+// configured TABLE_NAME for the legacy single-sheet workbook when no tab is given.
+async function tableForSheet(token, base, session, sheet) {
+  if (!sheet) return TABLE_NAME;
+  const t = await firstTableName(token, base, session, sheet);
+  if (!t) throw new Error(`Worksheet "${sheet}" has no table to check in against.`);
+  return t;
+}
+
+// GET /api/tabs -> { tabs: [names] }  — the workbook's worksheets, for the UI pickers.
+let tabsCache = { at: 0, data: null };
+app.get("/api/tabs", requireAuth(), async (req, res) => {
+  if (tabsCache.data && Date.now() - tabsCache.at < 300_000) return res.json(tabsCache.data);
+  let token, base, session;
+  try {
+    token = await getAccessToken();
+    base = workbookBase();
+    session = await openSession(token, base);
+    const tabs = await listWorksheets(token, base, session);
+    const data = { tabs, updatedAt: new Date().toISOString() };
+    tabsCache = { at: Date.now(), data };
+    res.json(data);
+  } catch (e) {
+    console.error("tabs load failed:", e?.message || e);
+    res.status(500).json({ error: "Could not list worksheets.", detail: e?.message || String(e) });
+  } finally {
+    if (token && base && session) await closeSession(token, base, session);
+  }
+});
+
+// POST /api/register { orderNumber, sheet }  ->  { response, customername, decision }
+// `sheet` names the event-day worksheet to check the guest into (e.g. "Saturday Dinner").
 app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
   const raw = (req.body && req.body.orderNumber) != null ? String(req.body.orderNumber) : "";
   // Accept the raw QR too; take the part before the first ';' like the Power App did.
   const orderNumber = raw.split(";")[0].trim();
+  const sheet = String(req.body?.sheet || "").trim();
   if (!orderNumber) return res.status(400).json({ error: "orderNumber required" });
 
   let token, base, session;
@@ -130,13 +163,14 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
     base = workbookBase();
     session = await openSession(token, base);
 
-    const { headers, rows } = await readTable(token, base, session, TABLE_NAME);
-    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ });
+    const table = await tableForSheet(token, base, session, sheet);
+    const { headers, rows } = await readTable(token, base, session, table);
+    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, sheetScoped: !!sheet });
 
     if (result.decision === "SUCCESS") {
-      for (const item of result.patch) await patchRow(token, base, session, TABLE_NAME, item);
+      for (const item of result.patch) await patchRow(token, base, session, table, item);
     }
-    res.json({ response: result.response, customername: result.customerName, decision: result.decision });
+    res.json({ response: result.response, customername: result.customerName, decision: result.decision, sheet: sheet || table });
   } catch (e) {
     console.error("register failed:", e?.message || e);
     res.status(500).json({ error: "Registration failed — please retry.", detail: e?.message || String(e) });
@@ -145,22 +179,38 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
   }
 });
 
-// GET /api/sheet -> { headers, rows, table, count, updatedAt }  (the live workbook)
-// Short-cached so opening the Guest List doesn't hammer Graph. NOTE: this returns
-// guest names/PII — gate it behind the volunteer/admin login when that phase lands.
-let sheetCache = { at: 0, data: null };
+// GET /api/sheet?tabs=A,B -> { sheets: [{ name, table, headers, rows, count }], updatedAt }
+// One entry per requested worksheet. With no ?tabs, reads the configured TABLE_NAME
+// (legacy single-sheet mode). Short-cached per tab-set so opening the list is cheap.
+// NOTE: returns guest names/PII — gated behind the volunteer/admin login.
+let sheetCache = { key: "", at: 0, data: null };
 app.get("/api/sheet", requireAuth(), async (req, res) => {
   const fresh = req.query.refresh === "1";
-  if (!fresh && sheetCache.data && Date.now() - sheetCache.at < 15_000) return res.json(sheetCache.data);
+  const requested = String(req.query.tabs || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const cacheKey = requested.join("|") || "__legacy__";
+  if (!fresh && sheetCache.data && sheetCache.key === cacheKey && Date.now() - sheetCache.at < 15_000)
+    return res.json(sheetCache.data);
 
   let token, base, session;
   try {
     token = await getAccessToken();
     base = workbookBase();
     session = await openSession(token, base);
-    const { headers, rows } = await readTable(token, base, session, TABLE_NAME);
-    const data = { headers, rows: rows.map((r) => r.values), table: TABLE_NAME, count: rows.length, updatedAt: new Date().toISOString() };
-    sheetCache = { at: Date.now(), data };
+
+    const names = requested.length ? requested : [null]; // null => legacy TABLE_NAME
+    const sheets = [];
+    for (const name of names) {
+      const table = name ? await firstTableName(token, base, session, name) : TABLE_NAME;
+      const read = table
+        ? await readTable(token, base, session, table)
+        : await readWorksheetUsedRange(token, base, session, name);
+      sheets.push({
+        name: name || table, table: table || null,
+        headers: read.headers, rows: read.rows.map((r) => r.values), count: read.rows.length,
+      });
+    }
+    const data = { sheets, updatedAt: new Date().toISOString() };
+    sheetCache = { key: cacheKey, at: Date.now(), data };
     res.json(data);
   } catch (e) {
     console.error("sheet load failed:", e?.message || e);

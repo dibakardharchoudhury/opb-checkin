@@ -94,7 +94,11 @@ const norm = (v) => String(v ?? "").trim();
 
 // Core evaluation. rows = [{ index, values: [...] }] straight from the table read.
 // Returns a decision plus the rows to patch. Pure & synchronous for easy testing.
-export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", now = new Date() }) {
+//
+// sheetScoped=true: the target worksheet IS the event session (e.g. "Saturday Dinner"),
+// so every row already belongs to it — match on the order number alone and skip the
+// date/time-of-day derivation the single-sheet flow used.
+export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", now = new Date(), sheetScoped = false }) {
   const col = mapColumns(headers);
   const clock = nowInZone(tz, now);
   const session = sessionFor(clock.hhmm);
@@ -110,7 +114,9 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
   const hasDiscrete = col.date !== -1 && col.passType !== -1;
 
   let valid;
-  if (hasDiscrete) {
+  if (sheetScoped) {
+    valid = candidates; // the tab defines the session; order match is sufficient
+  } else if (hasDiscrete) {
     valid = candidates.filter(
       (r) => passDateYMD(get(r.values, col.date)) === clock.ymd &&
              norm(get(r.values, col.passType)).toLowerCase() === session.toLowerCase()
