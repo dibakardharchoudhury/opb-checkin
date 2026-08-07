@@ -23,11 +23,15 @@
   body {
     font-family:"Poppins",system-ui,sans-serif; color:var(--ink);
     background:
-      radial-gradient(1200px 500px at 100% -10%, rgba(217,164,65,.18), transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, rgba(177,18,38,.12), transparent 55%),
-      var(--cream);
-    min-height:100dvh; display:flex;
+      radial-gradient(1100px 480px at 100% -12%, rgba(217,164,65,.22), transparent 60%),
+      radial-gradient(900px 520px at -12% 112%, rgba(177,18,38,.16), transparent 55%),
+      linear-gradient(180deg,#fdf6e8,var(--cream));
+    min-height:100dvh; display:flex; position:relative;
   }
+  body::before, body::after { content:""; position:fixed; z-index:0; pointer-events:none;
+    background:url("mandala.svg") center/contain no-repeat; }
+  body::before { top:-110px; right:-110px; width:400px; height:400px; opacity:.06; }
+  body::after { bottom:-140px; left:-140px; width:360px; height:360px; opacity:.05; }
   .serif { font-family:"Playfair Display",serif; }
 
   /* ---- marigold garland strip (decorative) ---- */
@@ -74,7 +78,7 @@
     opacity:0; pointer-events:none; transition:.2s; z-index:25; }
 
   /* ---- main ---- */
-  .stage { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .stage { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; z-index:1; }
   .topbar { display:flex; align-items:center; gap:12px; padding:16px 22px 10px; }
   .topbar .burger { display:none; background:none; border:0; color:var(--maroon); padding:6px; cursor:pointer; }
   .topbar .burger svg { width:26px; height:26px; }
@@ -92,8 +96,11 @@
   .view.active { display:block; animation:fade .25s ease; }
   @keyframes fade { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
 
-  .card { background:var(--ivory); border:1px solid rgba(217,164,65,.55); border-radius:20px;
-    box-shadow:0 10px 30px rgba(122,18,32,.10); overflow:hidden; }
+  .card { position:relative; background:linear-gradient(180deg,#fffdf8,var(--ivory));
+    border:1px solid rgba(217,164,65,.6); border-radius:22px;
+    box-shadow:0 16px 42px rgba(122,18,32,.13); overflow:hidden; }
+  .card::before { content:""; position:absolute; top:0; left:0; right:0; height:4px; z-index:1;
+    background:linear-gradient(90deg,var(--marigold),var(--gold-2),var(--red)); }
   .card .cap { display:flex; align-items:center; gap:8px; padding:12px 16px; font-weight:600; font-size:13px;
     color:var(--maroon); letter-spacing:.4px; text-transform:uppercase;
     background:linear-gradient(180deg,#fff,#fbeed3); border-bottom:1px solid rgba(217,164,65,.4); }
@@ -109,6 +116,10 @@
     border:3px solid var(--gold); }
   #reticle::before { top:-3px; left:-3px; border-right:0; border-bottom:0; border-radius:12px 0 0 0; }
   #reticle::after { bottom:-3px; right:-3px; border-left:0; border-top:0; border-radius:0 0 12px 0; }
+  .scanline { position:absolute; left:16%; right:16%; top:16%; height:2px; pointer-events:none;
+    background:linear-gradient(90deg, transparent, var(--gold-2), transparent);
+    box-shadow:0 0 10px var(--gold); animation:scan 2.6s ease-in-out infinite; }
+  @keyframes scan { 0%,100%{ top:16% } 50%{ top:84% } }
 
   .banner { margin-top:14px; border-radius:14px; padding:16px; text-align:center; font-weight:600; font-size:18px;
     line-height:1.4; background:#f3e7cf; color:var(--ink); min-height:62px; display:flex; align-items:center;
@@ -121,8 +132,13 @@
 
   .row { display:flex; gap:10px; margin-top:14px; }
   .row > * { flex:1; }
-  button { font:inherit; font-weight:600; border:0; border-radius:12px; padding:14px; color:#fff; cursor:pointer;
-    background:linear-gradient(180deg,var(--red),var(--maroon)); box-shadow:0 4px 14px rgba(122,18,32,.3); }
+  button { position:relative; overflow:hidden; font:inherit; font-weight:600; border:0; border-radius:12px;
+    padding:14px; color:#fff; cursor:pointer; background:linear-gradient(180deg,var(--red),var(--maroon));
+    box-shadow:0 6px 16px rgba(122,18,32,.32); }
+  button::after { content:""; position:absolute; inset:0;
+    background:linear-gradient(120deg, transparent 32%, rgba(255,255,255,.28) 50%, transparent 68%);
+    transform:translateX(-130%); }
+  button:hover::after { transform:translateX(130%); transition:transform .6s ease; }
   button:active { transform:translateY(1px); }
   button.ghost { background:#fff; color:var(--maroon); border:1.5px solid var(--gold); box-shadow:none; }
   button:disabled { opacity:.5; }
@@ -179,8 +195,14 @@
     background:radial-gradient(600px 300px at 50% 0, rgba(244,207,130,.16), transparent 60%),
       linear-gradient(180deg,var(--maroon),var(--maroon-2)); }
   body.authed #login { display:none; }
-  .loginCard { background:var(--ivory); border:1px solid rgba(217,164,65,.6); border-radius:22px;
-    padding:28px 24px 24px; max-width:390px; width:100%; text-align:center; box-shadow:0 24px 60px rgba(20,4,8,.5); }
+  .loginCard { position:relative; background:linear-gradient(180deg,#fffdf8,var(--ivory));
+    border:1px solid rgba(217,164,65,.6); border-radius:22px; padding:30px 24px 24px; max-width:390px;
+    width:100%; text-align:center; box-shadow:0 26px 64px rgba(20,4,8,.55); overflow:hidden; }
+  .loginCard::before { content:""; position:absolute; top:0; left:0; right:0; height:5px;
+    background:linear-gradient(90deg,var(--marigold),var(--gold-2),var(--red)); }
+  .ribbon { display:inline-block; background:linear-gradient(180deg,var(--gold-2),var(--gold));
+    color:var(--maroon-2); font-weight:700; font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase;
+    padding:5px 14px; border-radius:20px; box-shadow:0 4px 12px rgba(217,164,65,.45); margin-bottom:10px; }
   .loginCard .chokkhu { width:118px; margin-bottom:6px; }
   .loginCard h2 { font-family:"Rozha One",serif; color:var(--maroon); font-size:30px; margin:0; }
   .loginCard .sub2 { color:var(--muted); font-size:13px; margin:2px 0 4px; letter-spacing:.3px; }
@@ -192,6 +214,19 @@
   .msbtn:hover { background:#f8f9fa; }
   .loginErr { color:var(--err); font-size:13px; min-height:18px; margin-top:14px; }
   .loginNote { font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5; }
+
+  /* ---- build-version badge (bottom-left) ---- */
+  .ver-badge { position:fixed; left:14px; bottom:14px; z-index:60; display:none; align-items:center; gap:7px;
+    font-size:11.5px; font-weight:600; color:var(--gold-2); background:rgba(92,13,24,.9);
+    border:1px solid rgba(244,207,130,.4); padding:6px 12px; border-radius:22px; cursor:pointer;
+    box-shadow:0 6px 16px rgba(20,4,8,.4); backdrop-filter:blur(4px); }
+  body.authed .ver-badge { display:inline-flex; }
+  .ver-badge .ver-dot { width:8px; height:8px; border-radius:50%; background:var(--gold); flex:0 0 8px; }
+  .ver-badge.checking .ver-dot { animation:vpulse 1s infinite; }
+  .ver-badge.latest .ver-dot { background:#37c26b; }
+  .ver-badge.stale { background:linear-gradient(180deg,var(--red),var(--maroon)); color:#fff; border-color:rgba(244,207,130,.6); }
+  .ver-badge.stale .ver-dot { background:#ffd7bd; }
+  @keyframes vpulse { 50%{ opacity:.3 } }
 
   @media (max-width:820px) {
     aside { position:fixed; inset:0 auto 0 0; transform:translateX(-100%); transition:transform .22s ease; }
@@ -284,6 +319,7 @@
           <div id="viewport">
             <video id="video" playsinline muted></video>
             <div id="reticle"></div>
+            <div class="scanline"></div>
           </div>
 
           <div id="banner" class="banner">Point the camera at a guest's QR code</div>
@@ -352,6 +388,7 @@
       <circle cx="60" cy="58" r="9" fill="#fff"/><circle cx="160" cy="58" r="9" fill="#fff"/>
       <path d="M110 18 L104 46 L116 46 Z" fill="#c8102e"/><circle cx="110" cy="12" r="5" fill="#d9a441"/>
     </svg>
+    <div class="ribbon">Celebrating 10th Year</div>
     <h2>Oslo Durgotsav</h2>
     <div class="sub2">Volunteer Check-in · sign in to continue</div>
     <div class="provlist">
@@ -366,6 +403,8 @@
   </div>
 </div>
 
+<div class="ver-badge checking" id="verBadge" role="status" aria-live="polite" title="App build"><span class="ver-dot"></span><span id="verText">…</span></div>
+
 <script>
 // ---- Config -----------------------------------------------------------------
 const BACKEND_URL = "https://opb-checkin-api.azurewebsites.net";
@@ -373,6 +412,7 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "REPLACE_MS_CLIENT_ID" };
+const APP_VERSION = "v5"; // keep in lock-step with sw.js VERSION and version.json
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -619,7 +659,40 @@ $("signOut").onclick = signOut;
   }
 })();
 
+// ---- build-version badge + update prompt (Nordkapp-style) ----
+function initVersion() {
+  const badge = $("verBadge"), text = $("verText");
+  if (!badge || !text) return;
+  if (/[?&]fresh=/.test(location.search)) { try { history.replaceState(null, "", location.pathname + location.hash); } catch {} }
+  text.textContent = APP_VERSION;
+  const setState = (cls, label, title) => { badge.className = "ver-badge " + cls; if (label != null) text.textContent = label; if (title) badge.title = title; };
+  let updateReady = false;
+  async function check() {
+    setState("checking", APP_VERSION, "Checking for updates\u2026");
+    try {
+      if ("serviceWorker" in navigator) { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.update().catch(() => {}); }
+      const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const latest = (await r.json()).version;
+      if (latest && latest !== APP_VERSION) { updateReady = true; setState("stale", `${APP_VERSION} \u2192 ${latest} \u00b7 tap to update`, `A newer build (${latest}) is available.`); }
+      else { updateReady = false; setState("latest", APP_VERSION, `You're on the latest build (${APP_VERSION}).`); }
+    } catch { setState("", APP_VERSION, `Build ${APP_VERSION}`); }
+  }
+  badge.addEventListener("click", async () => {
+    if (!updateReady) { check(); return; }
+    setState("checking", "Updating\u2026", "Fetching the latest build\u2026");
+    try { if ("serviceWorker" in navigator) { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map((r) => r.unregister().catch(() => {}))); } } catch {}
+    try { if (window.caches) { const keys = await caches.keys(); await Promise.all(keys.map((k) => caches.delete(k).catch(() => {}))); } } catch {}
+    const u = new URL(location.href); u.searchParams.set("fresh", Date.now()); location.replace(u.href);
+  });
+  check();
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
+  window.addEventListener("online", check);
+  setInterval(check, 3600000);
+}
+
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+initVersion();
 </script>
 </body>
 </html>

@@ -98,6 +98,11 @@ az webapp config appsettings set -n opb-checkin-api -g rg-opb-checkin --settings
 Set `BACKEND_URL` at the top of `webapp/index.html` to the App Service URL, then serve
 `webapp/` from GitHub Pages (or any static host). Open on a phone and "Add to Home Screen".
 
+### Versioning
+A build-version badge (bottom-left) shows the running build and prompts a reload when a
+newer one is deployed. On each release, bump the same `vNN` in **three** places:
+`index.html` → `APP_VERSION`, `sw.js` → `VERSION`, and `version.json`.
+
 ## Run / test locally
 ```powershell
 cd webapp/api
@@ -110,6 +115,6 @@ cd ..; python -m http.server 8765   # http://localhost:8765/index.html
 ## Security notes
 - No secrets in the browser or repo; the refresh token/client secret live only in App Service settings.
 - Backend fails CORS closed to `ALLOWED_ORIGINS` and rate-limits per IP.
-- **Deferred (next phase):** volunteer/admin login (identity provider + roles). Until that
-  is added, keep `ALLOWED_ORIGINS` tight and treat the endpoint as semi-public.
+- Volunteer/admin access requires **Google/Microsoft sign-in** verified server-side against an
+  email allowlist; scan and guest-list endpoints require a session (see "Sign-in" above).
 - Consider signing the QR payload (HMAC) so a fabricated order number can't be walked in.
