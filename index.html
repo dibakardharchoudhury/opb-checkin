@@ -211,7 +211,9 @@
     font-size:13px; font-weight:600; color:var(--maroon); background:#fff; border:1.5px solid rgba(217,164,65,.6); user-select:none; }
   .tabchip.on { background:var(--maroon); color:#fff; border-color:var(--maroon); }
   .cfglbl { font-size:11.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--maroon); margin:14px 0 8px; }
-  .cfgrow label { font-weight:700; color:var(--maroon); font-size:13px; }
+  .cfgrow label { font-weight:700; color:var(--maroon); font-size:13px; display:block; margin-bottom:6px; }
+  .cfgrow select { width:100%; padding:11px 12px; border-radius:12px; border:1.5px solid rgba(217,164,65,.7); background:#fff; color:var(--ink); font:inherit; font-weight:600; }
+  .cfgwhere { font-weight:600; color:var(--muted); text-transform:none; letter-spacing:0; }
 
   /* ---- volunteer / role management ---- */
   .userform { display:flex; gap:8px; margin-bottom:12px; }
@@ -377,9 +379,8 @@
         <div class="body">
           <div class="sesspick unset" id="scanSessBox">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-            <label for="scanSheet">Event session</label>
-            <select id="scanSheet"><option value="">Choose the day / meal…</option></select>
-            <div id="scanSheetRO" class="sess-ro hidden"></div>
+            <label>Event session</label>
+            <div id="scanSheetRO" class="sess-ro"></div>
           </div>
           <div id="viewport">
             <video id="video" playsinline muted></video>
@@ -460,9 +461,9 @@
             Guest List &amp; scanning
           </div>
           <div class="body">
-            <div class="cfgrow"><label>Active event session</label>
-              <div class="hint">Choose it on the Scan page. Currently: <b id="cfgScanNow">—</b></div></div>
-            <div class="cfglbl">Worksheets volunteers can view</div>
+            <div class="cfgrow"><label for="cfgScan">Active event session <span class="cfgwhere">(Scan &amp; Register)</span></label>
+              <select id="cfgScan"><option value="">Choose the day / meal…</option></select></div>
+            <div class="cfglbl">Worksheets volunteers can view <span class="cfgwhere">(Guest List)</span></div>
             <div class="chips" id="cfgSheets"></div>
           </div>
         </div>
@@ -513,8 +514,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "REPLACE_GOOGLE_CLIENT_ID", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.10"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-07 12:48 CET"; // build date+time shown on the version badge
+const APP_VERSION = "v1.11"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-07 13:02 CET"; // build date+time shown on the version badge
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -539,8 +540,8 @@ async function submitOrder(raw) {
   if (!orderNumber) return;
   const sheet = appConfig.scanSheet;
   if (!sheet) {
-    setBanner(isAdmin() ? "Pick the event session first" : "No event session set — ask an admin", "warn"); sub.textContent = "";
-    $("scanSessBox").classList.add("unset"); if (isAdmin()) $("scanSheet").focus(); beep(false); return;
+    setBanner(isAdmin() ? "Set the event session in Settings first" : "No event session set — ask an admin", "warn"); sub.textContent = "";
+    $("scanSessBox").classList.add("unset"); beep(false); return;
   }
   setBanner("Verifying…", "busy"); sub.textContent = sheet + "  ·  order " + orderNumber;
   try {
@@ -630,14 +631,14 @@ async function loadTabs(force) {
     const r = await api("/api/tabs"); const j = await r.json();
     if (!r.ok) throw new Error(j.error || "Failed");
     allTabs = j.tabs || []; tabsFetched = true;
-    // Populate the admin scan-session dropdown; the chosen value comes from shared config.
-    const sel = $("scanSheet");
-    sel.innerHTML = '<option value="">Choose the day / meal…</option>' +
+    // Populate the admin scan-session dropdown (in Settings); value comes from shared config.
+    const sel = $("cfgScan");
+    if (sel) sel.innerHTML = '<option value="">Choose the day / meal…</option>' +
       allTabs.map((t) => '<option value="' + esc(t) + '">' + esc(t) + "</option>").join("");
     applyConfig();
   } catch {
     $("sheetTabs").innerHTML = '<span class="hint">Could not load worksheet list.</span>';
-    $("scanSheet").innerHTML = '<option value="">Could not load sessions</option>';
+    const sel = $("cfgScan"); if (sel) sel.innerHTML = '<option value="">Could not load sessions</option>';
   }
 }
 function visibleTabs() { return isAdmin() ? allTabs : allTabs.filter((t) => appConfig.guestSheets.includes(t)); }
@@ -655,7 +656,7 @@ $("sheetTabs").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-sheet]"); if (!b) return;
   selectSheet(b.dataset.sheet, false);
 });
-$("scanSheet").addEventListener("change", (e) => { if (isAdmin()) saveConfig({ scanSheet: e.target.value }); });
+$("cfgScan").addEventListener("change", (e) => { if (isAdmin()) saveConfig({ scanSheet: e.target.value }); });
 
 // Open the Guest List: ensure tabs, then show the first sheet the user may view.
 async function openGuests() {
@@ -796,7 +797,6 @@ function renderCfgSheets() {
   el.innerHTML = allTabs.length
     ? allTabs.map((t) => '<span class="tabchip' + (appConfig.guestSheets.includes(t) ? " on" : "") + '" data-tab="' + esc(t) + '">' + esc(t) + "</span>").join("")
     : '<span class="hint">No worksheets found.</span>';
-  const now = $("cfgScanNow"); if (now) now.textContent = appConfig.scanSheet || "not set";
 }
 $("cfgSheets").addEventListener("click", (e) => {
   const chip = e.target.closest(".tabchip"); if (!chip || !isAdmin()) return;
@@ -877,12 +877,12 @@ async function saveConfig(patch) {
   try { const r = await api("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     const j = await r.json(); if (r.ok) { appConfig = { scanSheet: j.scanSheet || "", guestSheets: Array.isArray(j.guestSheets) ? j.guestSheets : [] }; applyConfig(); } } catch {}
 }
-// Reflect config + role across the scan control, guest tab bar, and settings chips.
+// Reflect config + role across the scan display, guest tab bar, and settings controls.
 function applyConfig() {
-  const admin = isAdmin(), sel = $("scanSheet"), ro = $("scanSheetRO");
-  if (sel) { sel.value = appConfig.scanSheet || ""; sel.classList.toggle("hidden", !admin); }
-  if (ro) { ro.classList.toggle("hidden", admin); ro.textContent = appConfig.scanSheet || "Not set \u2014 ask an admin"; }
+  const ro = $("scanSheetRO");
+  if (ro) ro.textContent = appConfig.scanSheet || "Not set \u2014 ask an admin";
   const box = $("scanSessBox"); if (box) box.classList.toggle("unset", !appConfig.scanSheet);
+  const cfg = $("cfgScan"); if (cfg) cfg.value = appConfig.scanSheet || "";
   renderTabBar();
   renderCfgSheets();
 }
