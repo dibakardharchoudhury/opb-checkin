@@ -525,11 +525,6 @@
           <div id="lookupList" class="lookup-list"></div>
         </div>
       </div>
-
-      <div class="stats">
-        <div class="stat"><b id="okCount">0</b><span>Registered</span></div>
-        <div class="stat err"><b id="errCount">0</b><span>Issues</span></div>
-      </div>
     </section>
 
     <!-- ============ PLACEHOLDER VIEWS (future features) ============ -->
@@ -698,14 +693,13 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.46"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-12T21:25:44Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.47"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-12T21:33:44Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
 const banner = $("banner"), sub = $("sub"), video = $("video");
 let stream = null, scanning = false, lastValue = "", lastAt = 0, zxingReader = null;
-let okCount = 0, errCount = 0;
 
 function setBanner(text, cls) { banner.className = "banner" + (cls ? " " + cls : ""); banner.textContent = text; }
 function beep(ok) {
@@ -740,11 +734,11 @@ async function submitOrder(raw) {
     const who = j.customername && j.customername !== "Unknown" ? j.customername : "";
     const title = d === "SUCCESS" ? "Checked in" : d === "ALREADY" ? "Already checked in" : "Not a valid pass";
     showResult(kind, title, "#" + orderNumber + (who ? "  \u00b7  " + who : ""), true, sheet);
-    if (d === "SUCCESS") { okCount++; $("okCount").textContent = okCount; beep(true); sheetsStale = true; }
-    else { errCount++; $("errCount").textContent = errCount; beep(false); }
+    if (d === "SUCCESS") { beep(true); sheetsStale = true; }
+    else { beep(false); }
   } catch (e) {
     showResult("err", "Network error", "Please try again.");
-    errCount++; $("errCount").textContent = errCount; beep(false);
+    beep(false);
   } finally {
     setBanner("");
   }
