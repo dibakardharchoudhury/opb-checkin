@@ -622,7 +622,9 @@ app.get("/api/foodmenu", requireAuth(), async (_req, res) => {
 // organisers use. Also appended to the FoodStallLog audit sheet for a full history.
 app.post("/api/food-entry", requireAuth(), async (req, res) => {
   const name = clean(req.body?.name);
-  const day = clean(req.body?.day) || weekdayName(TZ);
+  // Accept a picked date (YYYY-MM-DD) and record its weekday in the log's Day column.
+  const dateStr = clean(req.body?.date);
+  const day = (/^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? weekdayName(TZ, new Date(dateStr + "T12:00:00")) : clean(req.body?.day)) || weekdayName(TZ);
   const raw = Array.isArray(req.body?.items) ? req.body.items : [];
   const items = raw.map((i) => ({ item: clean(i?.item), qty: Math.max(0, Math.min(999, parseInt(i?.qty, 10) || 0)) })).filter((i) => i.item && i.qty > 0);
   if (!name) return res.status(400).json({ error: "Guest name is required." });
