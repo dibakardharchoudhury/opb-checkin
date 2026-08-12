@@ -187,6 +187,34 @@ function colLetter(n) {
   return s;
 }
 
+// Raw used range with its absolute position, so callers can compute exact cell
+// addresses (rowIndex/columnIndex are 0-based offsets of the range's top-left).
+export async function readUsedRangeRaw(token, base, session, worksheet) {
+  const j = await gfetch(`${base}/worksheets/${encodeURIComponent(worksheet)}/usedRange(valuesOnly=true)?$select=address,rowIndex,columnIndex,values`, { token, session });
+  return { address: j.address || "", rowIndex: j.rowIndex || 0, columnIndex: j.columnIndex || 0, values: j.values || [] };
+}
+
+// Write a 2-D values block to a worksheet range (e.g. "A2:J2"). Overwrites those cells only.
+export async function writeRange(token, base, session, worksheet, address, values) {
+  await gfetch(`${base}/worksheets/${encodeURIComponent(worksheet)}/range(address='${address}')`, {
+    token, session, method: "PATCH", body: { values },
+  });
+}
+
+// Delete an Excel table by name (its cells/values remain). Best effort.
+export async function deleteTable(token, base, session, tableName) {
+  try { await gfetch(`${base}/tables/${encodeURIComponent(tableName)}`, { token, session, method: "DELETE" }); } catch { /* ignore */ }
+}
+
+// Create an Excel table over an explicit address (e.g. "'Parking'!A1:H20"); optionally rename it.
+export async function createTable(token, base, session, worksheet, address, tableName) {
+  const t = await gfetch(`${base}/tables/add`, { token, session, method: "POST", body: { address: `'${worksheet}'!${address}`, hasHeaders: true } });
+  if (tableName && t && t.id) {
+    try { await gfetch(`${base}/tables/${t.id}`, { token, session, method: "PATCH", body: { name: tableName } }); return tableName; } catch { /* name taken */ }
+  }
+  return t.name;
+}
+
 // Ensure a worksheet + Excel table exist for an append-only log; returns the table name.
 // If the worksheet already carries a table, that one is reused as-is (its own column order
 // is respected by the caller). Otherwise the worksheet (if missing) and a header-defined
@@ -211,4 +239,4 @@ export async function ensureLogTable(token, base, session, worksheet, headers, t
   return t.name;
 }
 
-export { workbookBase };
+export { workbookBase, colLetter };

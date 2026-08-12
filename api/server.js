@@ -16,6 +16,7 @@ import {
   getAccessToken, workbookBase, openSession, closeSession, readTable, patchRow,
   listWorksheets, firstTableName, readWorksheetUsedRange, listWorkbooks,
   addTableRows, tableHeaders, ensureLogTable,
+  readUsedRangeRaw, writeRange, deleteTable, createTable, colLetter,
 } from "./graph.js";
 import { evaluateScan, nowInZone, normalizeCutoff, normalizeEventDate } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
@@ -273,6 +274,16 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
 // One entry per requested worksheet. With no ?tabs, reads the configured TABLE_NAME
 // (legacy single-sheet mode). Short-cached per tab-set so opening the list is cheap.
 // NOTE: returns guest names/PII — gated behind the volunteer/admin login.
+
+// Run an async mapper over items with bounded concurrency (keeps Graph fast but unthrottled).
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  const worker = async () => { while (i < items.length) { const idx = i++; out[idx] = await fn(items[idx], idx); } };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length || 1) }, worker));
+  return out;
+}
+
 let sheetCache = { key: "", at: 0, data: null };
 app.get("/api/sheet", requireAuth(), async (req, res) => {
   const fresh = req.query.refresh === "1";
@@ -288,17 +299,16 @@ app.get("/api/sheet", requireAuth(), async (req, res) => {
     session = await openSession(token, base);
 
     const names = requested.length ? requested : [null]; // null => legacy TABLE_NAME
-    const sheets = [];
-    for (const name of names) {
+    const sheets = await mapLimit(names, 6, async (name) => {
       const table = name ? await firstTableName(token, base, session, name) : TABLE_NAME;
       const read = table
         ? await readTable(token, base, session, table)
         : await readWorksheetUsedRange(token, base, session, name);
-      sheets.push({
+      return {
         name: name || table, table: table || null,
         headers: read.headers, rows: read.rows.map((r) => r.values), count: read.rows.length,
-      });
-    }
+      };
+    });
     const data = { sheets, updatedAt: new Date().toISOString() };
     sheetCache = { key: cacheKey, at: Date.now(), data };
     res.json(data);
@@ -351,12 +361,20 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     const allTabs = await listWorksheets(token, base, session);
     const tabs = allow.size ? allTabs.filter((t) => allow.has(t)) : allTabs;
     const sessions = []; const recent = []; const passCounts = {}; let total = 0, registered = 0;
-    for (const t of tabs) {
-      const table = await firstTableName(token, base, session, t);
-      if (!table) continue;
-      const { headers, rows } = await readTable(token, base, session, table);
-      const c = colFinder(headers);
-      if (c.status === -1 || c.order === -1) continue; // only check-in style sheets
+    // Read every candidate sheet concurrently (bounded) — sequential reads were the bottleneck.
+    const reads = await mapLimit(tabs, 6, async (t) => {
+      try {
+        const table = await firstTableName(token, base, session, t);
+        if (!table) return null;
+        const { headers, rows } = await readTable(token, base, session, table);
+        const c = colFinder(headers);
+        if (c.status === -1 || c.order === -1) return null; // only check-in style sheets
+        return { t, rows, c };
+      } catch { return null; }
+    });
+    for (const rd of reads) {
+      if (!rd) continue;
+      const { t, rows, c } = rd;
       let tot = 0, reg = 0;
       for (const r of rows) {
         const v = r.values;
@@ -392,12 +410,13 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
 // These endpoints only ADD rows (and, once, create a log worksheet/table if missing).
 // They never edit or delete existing data, so a mistake can't corrupt the register.
 const FOOD_PRICE_SHEET = "FoodStallPriceList";
+const FOOD_DUES_SHEET = "Food Stall-Dues";
 const FOOD_LOG_SHEET = "FoodStallLog";
 const FOOD_LOG_TABLE = "FoodStallLog";
 const FOOD_LOG_HEADERS = ["DateTime", "Day", "Name", "Item", "Qty", "UnitPrice", "Amount", "RecordedBy"];
 const PARKING_SHEET = "Parking";
 const PARKING_TABLE = "ParkingLog";
-const PARKING_HEADERS = ["Timestamp", "Sl No", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
+const PARKING_HEADERS = ["Sl No", "Timestamp", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
 const MAXLEN = 120;
 const clean = (v) => String(v == null ? "" : v).replace(/[\r\n\t]+/g, " ").trim().slice(0, MAXLEN);
 
@@ -476,6 +495,63 @@ async function readFoodMenu(token, base, session) {
   return parseFoodMenu(headers, rows.map((r) => r.values));
 }
 
+const lc = (v) => String(v ?? "").trim().toLowerCase();
+
+// Apply a food order to the "Food Stall-Dues" matrix (guest rows x item columns + Total).
+// Pure: returns the (possibly widened) header row, the 0-based data-row index to write,
+// its full row values, whether the header changed, and the row Total. priceOf(name)->number.
+export function applyFoodDues(headers, dataRows, name, orders, priceOf) {
+  const H = headers.map((h) => String(h ?? ""));
+  const isSl = (h) => /^(sl\.?\s*no\.?|serial|s\.?\s*no\.?|#)$/i.test(String(h ?? "").trim());
+  const slCol = H.findIndex(isSl);
+  const nameCol = H.findIndex((h) => lc(h) === "name");
+  let totalCol = H.findIndex((h) => lc(h) === "total");
+  const isMeta = (i) => i === slCol || i === nameCol || i === totalCol;
+  const itemColOf = (item) => H.findIndex((h, i) => !isMeta(i) && lc(h) !== "" && lc(h) === lc(item));
+
+  const rows = dataRows.map((r) => (r || []).slice());
+  let maxSl = 0;
+  for (const r of rows) { const n = parseInt(r[slCol], 10); if (Number.isFinite(n)) maxSl = Math.max(maxSl, n); }
+
+  // Find the guest's row: by name, else the first pre-numbered empty-name row, else append.
+  let ri = nameCol === -1 ? -1 : rows.findIndex((r) => lc(r[nameCol]) === lc(name));
+  if (ri === -1 && nameCol !== -1) ri = rows.findIndex((r) => lc(r[nameCol]) === "");
+  if (ri === -1) { ri = rows.length; rows.push([]); }
+
+  const row = rows[ri];
+  while (row.length < H.length) row.push("");
+  if (nameCol !== -1) row[nameCol] = name;
+  if (slCol !== -1 && !(parseInt(row[slCol], 10) > 0)) row[slCol] = maxSl + 1;
+
+  let headerChanged = false;
+  for (const o of orders) {
+    const item = String(o.item ?? "").trim(); const qty = Math.max(0, parseInt(o.qty, 10) || 0);
+    if (!item || qty <= 0) continue;
+    let ci = itemColOf(item);
+    if (ci === -1) { H.push(item); ci = H.length - 1; row.push(""); headerChanged = true; }
+    row[ci] = (parseInt(row[ci], 10) || 0) + qty;
+  }
+  while (row.length < H.length) row.push("");
+
+  // Recompute Total (written as a value) across every item column.
+  let total = 0;
+  H.forEach((h, i) => { if (i !== slCol && i !== nameCol && i !== totalCol && lc(h) !== "") { const q = parseInt(row[i], 10) || 0; if (q > 0) total += q * (priceOf(h) || 0); } });
+  if (totalCol === -1) { H.push("Total"); totalCol = H.length - 1; row.push(""); headerChanged = true; }
+  row[totalCol] = Math.round(total * 100) / 100;
+
+  return { headers: H, headerChanged, rowIndex: ri, rowValues: row, total: row[totalCol] };
+}
+
+// Normalize a raw Parking row to [Sl No, Timestamp, Name, Mobile, Reg, Make, Model, Colour].
+// App rows were written as [Timestamp, Sl No, Name, ...]; manual rows as [Sl No, "", Name, ...].
+export function normalizeParkingRow(r) {
+  const v = (r || []).slice(); while (v.length < 8) v.push("");
+  const a = v[0];
+  const isStamp = (x) => (typeof x === "number" && x > 40000) || /^\d{4}-\d{2}-\d{2}[ T]/.test(String(x)) || /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(x));
+  if (isStamp(a)) return [v[1], v[0], v[2], v[3], v[4], v[5], v[6], v[7]];
+  return [v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]];
+}
+
 // GET /api/foodmenu -> { workbook, items:[{item,price}] }
 app.get("/api/foodmenu", requireAuth(), async (_req, res) => {
   let token, base, session;
@@ -490,7 +566,9 @@ app.get("/api/foodmenu", requireAuth(), async (_req, res) => {
   } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 
-// POST /api/food-entry { name, items:[{item,qty}], day? } -> appends to FoodStallLog
+// POST /api/food-entry { name, items:[{item,qty}], day? }
+// Primary store: the "Food Stall-Dues" matrix (guest rows x item columns + Total) the
+// organisers use. Also appended to the FoodStallLog audit sheet for a full history.
 app.post("/api/food-entry", requireAuth(), async (req, res) => {
   const name = clean(req.body?.name);
   const day = clean(req.body?.day) || weekdayName(TZ);
@@ -503,30 +581,40 @@ app.post("/api/food-entry", requireAuth(), async (req, res) => {
     const { loc } = await wbContext();
     token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
     const menu = await readFoodMenu(token, base, session);
-    const priceOf = (it) => { const hit = menu.find((m) => m.item.toLowerCase() === it.toLowerCase()); return hit ? hit.price : 0; };
-    const table = await ensureLogTable(token, base, session, FOOD_LOG_SHEET, FOOD_LOG_HEADERS, FOOD_LOG_TABLE);
-    const headers = await tableHeaders(token, base, session, table);
-    const iso = nowInZone(TZ).iso; const by = req.user.email;
-    let addedAmount = 0;
-    const rows = items.map((i) => {
-      const price = priceOf(i.item); const amount = Math.round(price * i.qty * 100) / 100; addedAmount += amount;
-      return rowForHeaders(headers, [
+    const priceByName = (nm) => { const hit = menu.find((m) => m.item.toLowerCase() === String(nm).toLowerCase()); return hit ? hit.price : 0; };
+    const addedAmount = items.reduce((s, i) => s + priceByName(i.item) * i.qty, 0);
+
+    // --- Primary: update the Food Stall-Dues matrix ---
+    const rawRange = await readUsedRangeRaw(token, base, session, FOOD_DUES_SHEET);
+    const values = rawRange.values;
+    let hRow = values.findIndex((r) => r.some((c) => lc(c) === "name") && r.some((c) => lc(c) === "total"));
+    if (hRow === -1) hRow = values.findIndex((r) => r.some((c) => lc(c) === "name"));
+    if (hRow === -1) hRow = 0;
+    const duesHeaders = (values[hRow] || []).map((h) => String(h ?? ""));
+    const dataRows = values.slice(hRow + 1);
+    const upd = applyFoodDues(duesHeaders, dataRows, name, items, priceByName);
+    const c0 = rawRange.columnIndex, headerRow1 = rawRange.rowIndex + hRow + 1;
+    const startL = colLetter(c0 + 1), endL = colLetter(c0 + upd.headers.length);
+    if (upd.headerChanged) await writeRange(token, base, session, FOOD_DUES_SHEET, `${startL}${headerRow1}:${endL}${headerRow1}`, [upd.headers]);
+    const rowNo = headerRow1 + 1 + upd.rowIndex;
+    await writeRange(token, base, session, FOOD_DUES_SHEET, `${startL}${rowNo}:${endL}${rowNo}`, [upd.rowValues]);
+
+    // --- Audit: append line items to FoodStallLog ---
+    try {
+      const table = await ensureLogTable(token, base, session, FOOD_LOG_SHEET, FOOD_LOG_HEADERS, FOOD_LOG_TABLE);
+      const headers = await tableHeaders(token, base, session, table);
+      const iso = nowInZone(TZ).iso; const by = req.user.email;
+      const logRows = items.map((i) => rowForHeaders(headers, [
         [["datetime", "date time", "time"], iso], [["day"], day], [["name"], name],
         [["item", "dish", "food"], i.item], [["qty", "quantity"], i.qty],
-        [["unitprice", "unit price", "price", "rate"], price], [["amount", "total"], amount],
+        [["unitprice", "unit price", "price", "rate"], priceByName(i.item)],
+        [["amount", "total"], Math.round(priceByName(i.item) * i.qty * 100) / 100],
         [["recordedby", "recorded by", "volunteer", "by"], by],
-      ]);
-    });
-    await addTableRows(token, base, session, table, rows);
-    // Running total for this guest across the whole log.
-    let personTotal = 0;
-    try {
-      const read = await readTable(token, base, session, table);
-      const nameCol = findCol(read.headers, ["name"]); const amtCol = findCol(read.headers, ["amount", "total"]);
-      if (nameCol !== -1 && amtCol !== -1)
-        for (const r of read.rows) if (String(r.values[nameCol] ?? "").trim().toLowerCase() === name.toLowerCase()) personTotal += parsePrice(r.values[amtCol]);
-    } catch { /* best effort */ }
-    res.json({ ok: true, added: rows.length, amount: Math.round(addedAmount * 100) / 100, personTotal: Math.round(personTotal * 100) / 100 });
+      ]));
+      await addTableRows(token, base, session, table, logRows);
+    } catch (e) { console.warn("food audit log failed:", e?.message || e); }
+
+    res.json({ ok: true, added: items.length, amount: Math.round(addedAmount * 100) / 100, personTotal: Number(upd.total) || 0 });
   } catch (e) {
     console.error("food-entry failed:", e?.message || e);
     res.status(500).json({ error: "Could not save the purchase.", detail: e?.message || String(e) });
@@ -548,8 +636,17 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
     token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
     const table = await ensureLogTable(token, base, session, PARKING_SHEET, PARKING_HEADERS, PARKING_TABLE);
     const headers = await tableHeaders(token, base, session, table);
-    let slNo = "";
-    try { const read = await readTable(token, base, session, table); slNo = read.rows.length + 1; } catch { /* optional */ }
+    // Next Sl No = one past the highest already on the sheet (works whether rows live
+    // inside or outside the table).
+    let slNo = 1;
+    try {
+      const rr = await readUsedRangeRaw(token, base, session, PARKING_SHEET);
+      const hr = rr.values.findIndex((r) => r.some((c) => lc(c) === "name"));
+      const slIdx = (rr.values[hr === -1 ? 0 : hr] || []).findIndex((c) => /^sl/i.test(String(c ?? "").trim()));
+      let maxSl = 0;
+      for (const r of rr.values.slice((hr === -1 ? 0 : hr) + 1)) { const n = parseInt(r[slIdx], 10); if (Number.isFinite(n)) maxSl = Math.max(maxSl, n); }
+      slNo = maxSl + 1;
+    } catch { /* optional */ }
     const stamp = parkingStamp(f.date, nowInZone(TZ));
     const row = rowForHeaders(headers, [
       [["timestamp", "date", "time"], stamp], [["sl", "serial", "s.no", "sno", "#"], slNo], [["name"], f.name],

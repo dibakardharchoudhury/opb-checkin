@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateScan, excelSerial, sessionFor, passDateYMD, nowInZone } from "./rules.js";
-import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu } from "./server.js";
+import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu, applyFoodDues, normalizeParkingRow } from "./server.js";
 
 // Variant A — discrete columns (Oslo Durgotsav 2025 App_Source shape).
 const headersA = ["RegistrationID", "UniqueKey", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Status", "DateTime"];
@@ -232,4 +232,47 @@ test("food menu still parses a vertical Item/Price price list", () => {
   const dataRows = [["Samosa", 40], ["Jalebi", "kr 30"], ["Header-ish", 0]];
   const items = parseFoodMenu(headers, dataRows);
   assert.deepEqual(items, [{ item: "Samosa", price: 40 }, { item: "Jalebi", price: 30 }]);
+});
+
+const DUES_HEADERS = ["Sl No.", "Name", "Veg Chop (1 stk)", "Mochar Chop (1 stk)", "Malpoa (1 stk)", "Kheermohan (1 stk)", "Ghugni (1 plate)", "Dahi Vada (2 stk)", "Cold Drink (1 stk)", "Total"];
+const PRICES = { "veg chop (1 stk)": 25, "mochar chop (1 stk)": 30, "malpoa (1 stk)": 25, "kheermohan (1 stk)": 30, "ghugni (1 plate)": 25, "dahi vada (2 stk)": 30, "cold drink (1 stk)": 25, "cup cake (1 stk)": 25 };
+const priceOf = (n) => PRICES[String(n).toLowerCase()] || 0;
+
+test("food dues: new guest fills first empty pre-numbered row and totals", () => {
+  const rows = [
+    [1, "Dibakar Dharchoudhury", 1, "", "", 2, 2, 1, 3, 240],
+    [2, "Arijit Chatterjee", 1, 3, 2, "", 1, "", "", 190],
+    [3, "", "", "", "", "", "", "", "", 0],
+  ];
+  const u = applyFoodDues(DUES_HEADERS, rows, "Prasenjit", [
+    { item: "Veg Chop (1 stk)", qty: 1 }, { item: "Mochar Chop (1 stk)", qty: 1 },
+    { item: "Cup Cake (1 stk)", qty: 1 }, { item: "Cold Drink (1 stk)", qty: 1 },
+  ], priceOf);
+  assert.equal(u.rowIndex, 2);                       // the empty "3" row
+  assert.equal(u.rowValues[0], 3);                   // keeps its Sl No.
+  assert.equal(u.rowValues[1], "Prasenjit");
+  assert.equal(u.rowValues[2], 1);                   // Veg Chop
+  assert.equal(u.rowValues[3], 1);                   // Mochar Chop
+  assert.equal(u.rowValues[8], 1);                   // Cold Drink
+  assert.equal(u.headerChanged, true);               // Cup Cake column appended
+  assert.equal(u.headers[u.headers.length - 1], "Cup Cake (1 stk)");
+  assert.equal(u.rowValues[u.rowValues.length - 1], 1);
+  assert.equal(u.total, 105);                        // 25+30+25+25
+});
+
+test("food dues: existing guest accumulates quantities and recomputes Total", () => {
+  const rows = [[1, "Dibakar Dharchoudhury", 1, "", "", 2, 2, 1, 3, 240]];
+  const u = applyFoodDues(DUES_HEADERS, rows, "dibakar dharchoudhury", [{ item: "Veg Chop (1 stk)", qty: 1 }], priceOf);
+  assert.equal(u.rowIndex, 0);
+  assert.equal(u.rowValues[2], 2);                   // 1 + 1
+  assert.equal(u.total, 265);                        // 2*25+2*30+2*25+1*30+3*25
+});
+
+test("parking: normalize aligns app rows and leaves manual rows intact", () => {
+  assert.deepEqual(
+    normalizeParkingRow([46282.9, 1, "Prasenjit", 123456, "EL1238789", "Toyota", "Corolla", "Black"]),
+    [1, 46282.9, "Prasenjit", 123456, "EL1238789", "Toyota", "Corolla", "Black"]);
+  assert.deepEqual(
+    normalizeParkingRow([1, "", "Arijit Chatterjee", 92563402, "EH60013", "Tesla", "Model X", "Blue"]),
+    [1, "", "Arijit Chatterjee", 92563402, "EH60013", "Tesla", "Model X", "Blue"]);
 });
