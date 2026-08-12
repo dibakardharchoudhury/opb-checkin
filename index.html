@@ -435,8 +435,8 @@
       Dashboard
     </a>
     <a data-view="guests">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Guest List
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h2v5H8zM14 11h2v7h-2z"/></svg>
+      Reports
     </a>
     <a data-view="parking">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
@@ -687,8 +687,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.38"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-12T18:59:17Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.39"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-12T19:00:47Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1356,7 +1356,7 @@ $("uEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") addUser(
 $("userList").addEventListener("click", (e) => { const b = e.target.closest(".rm"); if (b) removeUserEmail(b.dataset.email); });
 
 // ---- navigation (tabs + mobile drawer) ----
-const labels = { scan:"Scan & Register", dashboard:"Dashboard", guests:"Guest List", parking:"Parking", food:"Food Stall-Dues", settings:"Settings" };
+const labels = { scan:"Scan & Register", dashboard:"Dashboard", guests:"Reports", parking:"Parking", food:"Food Stall-Dues", settings:"Settings" };
 function showView(name) {
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === name));
   document.querySelectorAll("main .view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
