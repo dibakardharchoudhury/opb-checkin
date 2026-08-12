@@ -348,30 +348,34 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
   let token, base, session;
   try {
     const { loc, name } = await wbContext();
-    const key = loc || "__env__";
+    const cfg = await getConfig();
+    const scan = String(cfg.scanSheet || "").trim();
+    const key = (loc || "__env__") + "|" + scan;
     if (!fresh && summaryCache.data && summaryCache.key === key && Date.now() - summaryCache.at < 30_000) return res.json(summaryCache.data);
     token = await getAccessToken();
     base = workbookBase(loc);
     session = await openSession(token, base);
-    // Scope the dashboard to the admin-designated event/guest worksheets so master or
-    // source sheets (e.g. "App_Source") aren't mistaken for event sessions. If none are
-    // configured yet, fall back to every check-in-style sheet.
-    const cfg = await getConfig();
+    // The dashboard reflects the ACTIVE event session (config scanSheet). Only when none
+    // is set do we fall back to the admin's guest sheets, then every worksheet.
     const allow = new Set((cfg.guestSheets || []).map((s) => String(s)));
     const allTabs = await listWorksheets(token, base, session);
-    const tabs = allow.size ? allTabs.filter((t) => allow.has(t)) : allTabs;
+    const tabs = scan ? [scan] : (allow.size ? allTabs.filter((t) => allow.has(t)) : allTabs);
     const sessions = []; const recent = []; const passCounts = {}; let total = 0, registered = 0;
-    // Read every candidate sheet concurrently (bounded) — sequential reads were the bottleneck.
-    const reads = await mapLimit(tabs, 6, async (t) => {
-      try {
-        const table = await firstTableName(token, base, session, t);
-        if (!table) return null;
-        const { headers, rows } = await readTable(token, base, session, table);
-        const c = colFinder(headers);
-        if (c.status === -1 || c.order === -1) return null; // only check-in style sheets
-        return { t, rows, c };
-      } catch { return null; }
-    });
+    // Read the check-in sheet(s) plus the food/parking aggregates concurrently.
+    const [reads, food, parking] = await Promise.all([
+      mapLimit(tabs, 6, async (t) => {
+        try {
+          const table = await firstTableName(token, base, session, t);
+          if (!table) return null;
+          const { headers, rows } = await readTable(token, base, session, table);
+          const c = colFinder(headers);
+          if (c.status === -1 || c.order === -1) return null; // only check-in style sheets
+          return { t, rows, c };
+        } catch { return null; }
+      }),
+      readFoodDuesSummary(token, base, session).catch(() => ({ items: [], revenue: 0, guests: 0 })),
+      readParkingSummary(token, base, session).catch(() => ({ total: 0, byMake: [] })),
+    ]);
     for (const rd of reads) {
       if (!rd) continue;
       const { t, rows, c } = rd;
@@ -395,7 +399,7 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     }
     recent.sort((a, b) => String(b.time).localeCompare(String(a.time)));
     const byPass = Object.entries(passCounts).map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count);
-    const data = { workbook: name, sessions, byPass, totals: { total, registered }, recent, updatedAt: new Date().toISOString() };
+    const data = { workbook: name, sessions, byPass, totals: { total, registered }, recent, food, parking, updatedAt: new Date().toISOString() };
     summaryCache = { key, at: Date.now(), data };
     res.json(data);
   } catch (e) {
@@ -556,6 +560,47 @@ export function normalizeParkingRow(r) {
   const isStamp = (x) => (typeof x === "number" && x > 40000) || /^\d{4}-\d{2}-\d{2}[ T]/.test(String(x)) || /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(x));
   if (isStamp(a)) return [v[1], v[0], v[2], v[3], v[4], v[5], v[6], v[7]];
   return [v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]];
+}
+
+// Dashboard aggregate: quantity sold per item + revenue from the Food Stall-Dues matrix.
+async function readFoodDuesSummary(token, base, session) {
+  const raw = await readUsedRangeRaw(token, base, session, FOOD_DUES_SHEET);
+  const values = raw.values || [];
+  let hRow = values.findIndex((r) => r.some((c) => lc(c) === "name") && r.some((c) => lc(c) === "total"));
+  if (hRow === -1) hRow = values.findIndex((r) => r.some((c) => lc(c) === "name"));
+  if (hRow === -1) return { items: [], revenue: 0, guests: 0 };
+  const headers = values[hRow].map((h) => String(h ?? ""));
+  const isSl = (h) => /^(sl\.?\s*no\.?|serial|s\.?\s*no\.?|#)$/i.test(h.trim());
+  const slCol = headers.findIndex(isSl), nameCol = headers.findIndex((h) => lc(h) === "name"), totalCol = headers.findIndex((h) => lc(h) === "total");
+  const itemCols = headers.map((h, i) => ({ h, i })).filter(({ h, i }) => i !== slCol && i !== nameCol && i !== totalCol && lc(h) !== "");
+  const items = itemCols.map(({ h }) => ({ item: h, qty: 0 }));
+  let revenue = 0, guests = 0;
+  for (const r of values.slice(hRow + 1)) {
+    if (nameCol !== -1 && String(r[nameCol] ?? "").trim() === "") continue;
+    guests++;
+    itemCols.forEach(({ i }, k) => { const q = parseInt(r[i], 10); if (Number.isFinite(q)) items[k].qty += q; });
+    if (totalCol !== -1) revenue += parsePrice(r[totalCol]);
+  }
+  return { items: items.filter((x) => x.qty > 0).sort((a, b) => b.qty - a.qty), revenue: Math.round(revenue * 100) / 100, guests };
+}
+
+// Dashboard aggregate: car count and breakdown by make from the Parking sheet.
+async function readParkingSummary(token, base, session) {
+  const raw = await readUsedRangeRaw(token, base, session, PARKING_SHEET);
+  const values = raw.values || [];
+  let hRow = values.findIndex((r) => r.some((c) => lc(c) === "name"));
+  if (hRow === -1) return { total: 0, byMake: [] };
+  const headers = values[hRow].map((h) => String(h ?? ""));
+  const nameCol = headers.findIndex((h) => lc(h) === "name"), makeCol = headers.findIndex((h) => lc(h).includes("make"));
+  const counts = {}; let total = 0;
+  for (const r of values.slice(hRow + 1)) {
+    if (nameCol !== -1 && String(r[nameCol] ?? "").trim() === "") continue;
+    total++;
+    const key = (makeCol !== -1 ? String(r[makeCol] ?? "").trim() : "") || "Unspecified";
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  const byMake = Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
+  return { total, byMake };
 }
 
 // GET /api/foodmenu -> { workbook, items:[{item,price}] }
