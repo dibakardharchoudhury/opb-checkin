@@ -434,21 +434,46 @@ export function parsePrice(v) {
   const n = parseFloat(s); return isFinite(n) ? n : 0;
 }
 
-// Read the price list into [{ item, price }], auto-detecting the item and price columns.
+// Parse a price list into [{ item, price }], handling BOTH sheet orientations:
+//   Vertical  — rows are items with an item column + a price column.
+//   Horizontal — each column header is an item and its price sits in a row below
+//                (the layout the OPB workbook actually uses).
+export function parseFoodMenu(headers, dataRows) {
+  const stripCur = (v) => String(v ?? "").replace(/\b(kr|nok|kroner|pris)\b|,-/gi, "");
+  const looksText = (v) => /[a-z]/i.test(stripCur(v));           // an item name (letters beyond a currency word)
+  const RESERVED = /^(item|dish|food|name|product|menu|particular|particulars|description|price|amount|rate|cost)$/i;
+  const items = [];
+
+  // Vertical: find a text item column and a numeric price column.
+  let itemCol = findCol(headers, ["item", "dish", "food", "product", "name", "particular", "description", "menu"]);
+  let priceCol = findCol(headers, ["price", "amount", "rate", "cost", "nok", "kr", "kroner", "pris"]);
+  if (itemCol === -1) itemCol = headers.findIndex((_, c) => dataRows.some((r) => looksText(r[c])));
+  if (priceCol === -1) priceCol = headers.findIndex((_, c) => c !== itemCol && dataRows.some((r) => parsePrice(r[c]) > 0));
+  if (itemCol !== -1 && priceCol !== -1) {
+    for (const r of dataRows) {
+      const item = clean(r[itemCol]); const price = parsePrice(r[priceCol]);
+      if (item && price > 0 && !RESERVED.test(item)) items.push({ item, price });
+    }
+  }
+
+  // Horizontal fallback: header = item name, price is the first numeric cell in its column.
+  if (!items.length) {
+    headers.forEach((h, c) => {
+      const item = clean(h);
+      if (!item || !looksText(h) || RESERVED.test(item)) return;
+      let price = 0;
+      for (const r of dataRows) { const p = parsePrice(r[c]); if (p > 0) { price = p; break; } }
+      if (price > 0) items.push({ item, price });
+    });
+  }
+
+  return items;
+}
+
+// Read the price list into [{ item, price }], auto-detecting the layout.
 async function readFoodMenu(token, base, session) {
   const { headers, rows } = await readWorksheetUsedRange(token, base, session, FOOD_PRICE_SHEET);
-  let itemCol = findCol(headers, ["item", "dish", "food", "product", "name"]);
-  let priceCol = findCol(headers, ["price", "amount", "rate", "cost", "nok", "kr", "kroner"]);
-  const dataRows = rows.map((r) => r.values);
-  if (itemCol === -1) itemCol = headers.findIndex((_, c) => dataRows.some((r) => isNaN(parseFloat(r[c])) && String(r[c] ?? "").trim()));
-  if (priceCol === -1) priceCol = headers.findIndex((_, c) => c !== itemCol && dataRows.some((r) => parsePrice(r[c]) > 0));
-  const items = [];
-  if (itemCol === -1 || priceCol === -1) return items;
-  for (const r of dataRows) {
-    const item = clean(r[itemCol]); const price = parsePrice(r[priceCol]);
-    if (item && price >= 0 && !/^(item|dish|food|name|product)$/i.test(item)) items.push({ item, price });
-  }
-  return items;
+  return parseFoodMenu(headers, rows.map((r) => r.values));
 }
 
 // GET /api/foodmenu -> { workbook, items:[{item,price}] }

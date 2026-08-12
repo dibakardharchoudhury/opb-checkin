@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateScan, excelSerial, sessionFor, passDateYMD, nowInZone } from "./rules.js";
-import { rowForHeaders, parsePrice, parkingStamp } from "./server.js";
+import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu } from "./server.js";
 
 // Variant A — discrete columns (Oslo Durgotsav 2025 App_Source shape).
 const headersA = ["RegistrationID", "UniqueKey", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Status", "DateTime"];
@@ -216,4 +216,20 @@ test("parking and food stall sample rows format and price correctly", () => {
     [["timestamp", "date", "time"], stamp], [["sl", "serial", "s.no", "sno", "#"], 2], [["name"], "A"],
   ]);
   assert.equal(legacy[0], "2025-09-26 17:05:09");
+});
+
+test("food menu parses the horizontal OPB price list (item headers, prices below)", () => {
+  const headers = ["Veg Chop (1 stk)", "Singara (1 stk)", "Ghugni (1 plate)", "Cold Drink (1 stk)"];
+  const dataRows = [[25, 30, 25, 25]];
+  const items = parseFoodMenu(headers, dataRows);
+  assert.equal(items.length, 4);
+  assert.deepEqual(items[0], { item: "Veg Chop (1 stk)", price: 25 });
+  assert.deepEqual(items[1], { item: "Singara (1 stk)", price: 30 });
+});
+
+test("food menu still parses a vertical Item/Price price list", () => {
+  const headers = ["Item", "Price"];
+  const dataRows = [["Samosa", 40], ["Jalebi", "kr 30"], ["Header-ish", 0]];
+  const items = parseFoodMenu(headers, dataRows);
+  assert.deepEqual(items, [{ item: "Samosa", price: 40 }, { item: "Jalebi", price: 30 }]);
 });
