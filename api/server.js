@@ -685,6 +685,8 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
   };
   if (!f.name) return res.status(400).json({ error: "Guest name is required." });
   if (!f.reg && !f.mobile) return res.status(400).json({ error: "Add a car registration or a mobile number." });
+  if (f.mobile && !/^\+?[0-9][0-9 ]{5,15}$/.test(f.mobile)) return res.status(400).json({ error: "Mobile number is not valid." });
+  if (f.reg && (!/^[A-Za-z0-9 -]{2,12}$/.test(f.reg) || f.reg.replace(/[^A-Za-z0-9]/g, "").length < 2)) return res.status(400).json({ error: "Car registration is not valid." });
   let token, base, session;
   try {
     const { loc } = await wbContext();
