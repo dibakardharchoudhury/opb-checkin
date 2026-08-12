@@ -67,22 +67,6 @@ test("SUCCESS: multiple rows (veg + non-veg) both updated", () => {
   assert.equal(r.patch.length, 2); // both Lunch rows, not the Dinner one
 });
 
-// Variant B — collapsed AppKey (Oslo Durgotsav 2026 shape). No Date/PassType columns.
-const headersB = ["Order Number", "UniqueKey", "First Name", "Last Name", "Quantity", "AppKey", "Status", "DateTime"];
-const rowB = (order, dateSerial, pass, food, status = "") =>
-  ({ index: 0, values: [order, `${order}${dateSerial}${pass}${food}`, "Riya", "Roy", "1", `${order}${dateSerial}${pass}${food}`, status, ""] });
-
-test("Variant B: AppKey prefix match registers", () => {
-  const rows = [
-    { ...rowB(3000, serial, "Lunch", "Yes"), index: 7 },
-    { ...rowB(3000, serial, "Dinner", "Yes"), index: 8 },
-  ];
-  const r = evaluateScan({ headers: headersB, rows, orderNumber: "3000", now: noonOslo });
-  assert.equal(r.decision, "SUCCESS");
-  assert.equal(r.patch.length, 1);
-  assert.equal(r.patch[0].index, 7);
-});
-
 // ---- Flow fidelity: a pass is valid ONLY for its own date and the current meal window ----
 // (Ported from OPB_Excel_QRCodeScannerFlow Filter_array; cut-off now 1600 CET.)
 const friSerial = serial - 1;                          // 2025-09-25 (Friday)
@@ -137,19 +121,6 @@ test("flow: veg + non-veg for the same date/meal both register, other meals unto
   const r = evaluateScan({ headers: headersA, rows, orderNumber: "6000", now: satEve });
   assert.equal(r.decision, "SUCCESS");
   assert.deepEqual(r.patch.map((p) => p.index).sort((a, b) => a - b), [10, 11]);
-});
-
-test("flow (Variant B): collapsed AppKey picks today's Dinner across days", () => {
-  const rows = [
-    { ...rowB(4000, friSerial, "Lunch", "Yes"), index: 1 },
-    { ...rowB(4000, friSerial, "Dinner", "Yes"), index: 2 },
-    { ...rowB(4000, serial, "Lunch", "Yes"), index: 3 },
-    { ...rowB(4000, serial, "Dinner", "Yes"), index: 4 },
-  ];
-  const r = evaluateScan({ headers: headersB, rows, orderNumber: "4000", now: satEve });
-  assert.equal(r.decision, "SUCCESS");
-  assert.equal(r.patch.length, 1);
-  assert.equal(r.patch[0].index, 4);
 });
 
 test("flow: already-registered today's pass returns ALREADY, not a re-register", () => {

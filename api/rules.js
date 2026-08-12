@@ -1,19 +1,17 @@
-// Business rules for OPB check-in, ported faithfully from the Power Automate flow
-// OPB_Excel_QRCodeScannerFlow and made schema-flexible so it works with BOTH
-// workbook variants:
-//   A) discrete columns: RegistrationID/Order Number, Date, PassType, FoodOption, UniqueKey
-//   B) collapsed key:     Order Number/RegistrationID, AppKey (= order+dateSerial+PassType+FoodOption)
+// Business rules for OPB check-in, ported from the Power Automate flow
+// OPB_Excel_QRCodeScannerFlow.
 //
-// The scan supplies only the order/registration number (from the QR "<order>;").
-// Date is "today" and the meal session is derived from the current Oslo time,
-// exactly as the original flow did.
+// A row to register is identified by combining RegistrationID + Date + PassType
+// (+ FoodOption, which distinguishes multiple rows for the same order/date/meal).
+// The scan supplies only the order/registration number (from the QR "<order>;"); the
+// Date is the configured event date (or today) and the meal (Lunch/Dinner) is derived
+// from the current Oslo time vs the cut-off. The legacy UniqueKey/AppKey column is NOT used.
 
 const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30); // 1899-12-30; Excel serial day 0
 
 // Column name candidates (case-insensitive) for each logical field.
 const COLS = {
   order: ["RegistrationID", "Order Number", "OrderNumber", "Order"],
-  key: ["UniqueKey", "AppKey"],
   first: ["First Name", "FirstName"],
   last: ["Last Name", "LastName"],
   date: ["Date"],
@@ -117,8 +115,6 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
   const clock = nowInZone(tz, now);
   const session = sessionFor(clock.hhmm, cutoff);
   const targetDateYmd = normalizeEventDate(eventDate) || clock.ymd;
-  const targetDate = new Date(`${targetDateYmd}T00:00:00`);
-  const targetSerial = excelSerial(targetDate);
   const order = norm(orderNumber);
 
   const get = (values, idx) => (idx === -1 ? "" : values[idx]);
@@ -127,23 +123,23 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
   const nameOf = (r) => `${norm(get(r.values, col.first))} ${norm(get(r.values, col.last))}`.trim();
   const customerName = candidates.length ? nameOf(candidates[0]) : "Unknown";
 
+  // Identify the row(s) to update by combining RegistrationID + Date + PassType. The meal
+  // (Lunch/Dinner) is derived from the current time vs the cut-off (session), and a scan
+  // carries no FoodOption — so every FoodOption variant of the same order/date/meal is
+  // updated together (that column is what makes them distinct rows). The legacy
+  // UniqueKey/AppKey column is intentionally NOT used.
   const hasDiscrete = col.date !== -1 && col.passType !== -1;
 
   let valid;
   if (sheetScoped) {
-    valid = candidates; // the tab defines the session; order match is sufficient
+    valid = candidates; // the tab itself defines the date + meal; order match is sufficient
   } else if (hasDiscrete) {
     valid = candidates.filter(
       (r) => passDateYMD(get(r.values, col.date)) === targetDateYmd &&
              norm(get(r.values, col.passType)).toLowerCase() === session.toLowerCase()
     );
-  } else if (col.key !== -1) {
-    // Collapsed variant: key = order + dateSerial + PassType (+ FoodOption). Match on
-    // the prefix so both veg/non-veg variants of the same session are caught.
-    const prefix = `${order}${targetSerial}${session}`.toLowerCase();
-    valid = candidates.filter((r) => norm(get(r.values, col.key)).toLowerCase().startsWith(prefix));
   } else {
-    valid = candidates; // last resort: order only
+    valid = candidates; // last resort only when a sheet lacks Date/PassType columns
   }
 
   if (candidates.length === 0)
