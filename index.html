@@ -624,6 +624,10 @@
               <select id="cfgWorkbook"><option value="">Loading spreadsheets…</option></select></div>
             <div class="cfgrow"><label for="cfgScan">Active event session <span class="cfgwhere">(Scan &amp; Register)</span></label>
               <select id="cfgScan"><option value="">Choose the day / meal…</option></select></div>
+            <div class="cfgrow"><label for="cfgEventDate">Event date <span class="cfgwhere">(override validation date)</span></label>
+              <input id="cfgEventDate" type="date" /></div>
+            <div class="cfgrow"><label for="cfgCutoff">Meal cutoff <span class="cfgwhere">(HH:mm)</span></label>
+              <input id="cfgCutoff" type="time" step="900" /></div>
             <div class="cfglbl">Worksheets volunteers can view <span class="cfgwhere">(Guest List)</span></div>
             <div class="chips" id="cfgSheets"></div>
           </div>
@@ -858,6 +862,8 @@ $("sheetTabs").addEventListener("click", (e) => {
   selectSheet(b.dataset.sheet, false);
 });
 $("cfgScan").addEventListener("change", (e) => { if (isAdmin()) saveConfig({ scanSheet: e.target.value }); });
+$("cfgEventDate").addEventListener("change", (e) => { if (isAdmin()) saveConfig({ eventDate: e.target.value || "" }); });
+$("cfgCutoff").addEventListener("change", (e) => { if (isAdmin()) saveConfig({ cutoff: cutoffToStore(e.target.value) }); });
 
 // Open the Guest List: ensure tabs, then show the first sheet the user may view.
 async function openGuests() {
@@ -1368,7 +1374,7 @@ $("scrim").onclick = () => document.body.classList.remove("nav-open");
 let session = { token: sessionStorage.getItem("opb_tok") || "", name: "", role: "", email: "" };
 
 // ---- shared, admin-set config (spreadsheet + scan session + volunteer-visible sheets) ----
-let appConfig = { workbook: null, scanSheet: "", guestSheets: [] };
+let appConfig = { workbook: null, scanSheet: "", guestSheets: [], cutoff: "", eventDate: "" };
 let allWorkbooks = [];
 function isAdmin() { return session.role === "admin"; }
 function normCfg(j) {
@@ -1376,6 +1382,8 @@ function normCfg(j) {
     workbook: j && j.workbook && j.workbook.id ? { id: j.workbook.id, name: j.workbook.name || "" } : null,
     scanSheet: j && j.scanSheet || "",
     guestSheets: j && Array.isArray(j.guestSheets) ? j.guestSheets : [],
+    cutoff: (j && j.cutoff) || "",
+    eventDate: (j && j.eventDate) || "",
   };
 }
 async function loadConfig() {
@@ -1385,6 +1393,22 @@ async function saveConfig(patch) {
   Object.assign(appConfig, patch); applyConfig();
   try { const r = await api("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     const j = await r.json(); if (r.ok) { appConfig = normCfg(j); applyConfig(); } } catch {}
+}
+function cutoffToInput(v) {
+  const s = String(v || "").trim();
+  if (!s) return "";
+  const n = String(s).replace(":", "");
+  if (!/^\d{3,4}$/.test(n)) return "";
+  const hh = n.length === 3 ? n.slice(0, 1) : n.slice(0, 2);
+  const mm = n.length === 3 ? n.slice(1) : n.slice(2);
+  return `${String(Number(hh)).padStart(2, "0")}:${String(Number(mm)).padStart(2, "0")}`;
+}
+function cutoffToStore(v) {
+  const s = String(v || "").trim();
+  if (!s) return "";
+  const n = s.replace(":", "");
+  if (!/^\d{4}$/.test(n)) return "";
+  return n;
 }
 async function loadWorkbooks() {
   const sel = $("cfgWorkbook"); if (!sel) return;
@@ -1412,6 +1436,8 @@ $("cfgWorkbook").addEventListener("change", async (e) => {
 function applyConfig() {
   const wsel = $("cfgWorkbook"); if (wsel && allWorkbooks.length) wsel.value = appConfig.workbook ? appConfig.workbook.id : "";
   const cfg = $("cfgScan"); if (cfg) cfg.value = appConfig.scanSheet || "";
+  const eventDate = $("cfgEventDate"); if (eventDate) eventDate.value = appConfig.eventDate || "";
+  const cutoff = $("cfgCutoff"); if (cutoff) cutoff.value = cutoffToInput(appConfig.cutoff || "");
   renderTabBar();
   renderCfgSheets();
   testConnection();

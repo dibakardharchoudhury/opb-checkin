@@ -71,8 +71,20 @@ export function nowInZone(tz, when = new Date()) {
 // The flow rule: strictly AFTER the cutoff (CET) only Dinner passes are valid, else Lunch.
 // The Power Automate flow used 1400; OPB now uses 1600 (configurable via SESSION_CUTOFF).
 // Semantics match the flow's greater(HHmm, cutoff): exactly at the cutoff is still Lunch.
+export function normalizeCutoff(cutoff = 1600) {
+  if (cutoff == null || cutoff === "") return 1600;
+  const n = Number.parseInt(String(cutoff).replace(/:/, ""), 10);
+  return Number.isFinite(n) ? n : 1600;
+}
+
+export function normalizeEventDate(eventDate) {
+  if (!eventDate) return null;
+  const s = String(eventDate).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
 export function sessionFor(hhmm, cutoff = 1600) {
-  return hhmm > cutoff ? "Dinner" : "Lunch";
+  return hhmm > normalizeCutoff(cutoff) ? "Dinner" : "Lunch";
 }
 
 // Normalize a cell that holds a pass date (may be an Excel serial number, a Date,
@@ -100,11 +112,13 @@ const norm = (v) => String(v ?? "").trim();
 // sheetScoped=true: the target worksheet IS the event session (e.g. "Saturday Dinner"),
 // so every row already belongs to it — match on the order number alone and skip the
 // date/time-of-day derivation the single-sheet flow used.
-export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", now = new Date(), sheetScoped = false, cutoff = 1600 }) {
+export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", now = new Date(), sheetScoped = false, cutoff = 1600, eventDate = null }) {
   const col = mapColumns(headers);
   const clock = nowInZone(tz, now);
   const session = sessionFor(clock.hhmm, cutoff);
-  const todaySerial = excelSerial(clock.dateOnly);
+  const targetDateYmd = normalizeEventDate(eventDate) || clock.ymd;
+  const targetDate = new Date(`${targetDateYmd}T00:00:00`);
+  const targetSerial = excelSerial(targetDate);
   const order = norm(orderNumber);
 
   const get = (values, idx) => (idx === -1 ? "" : values[idx]);
@@ -120,13 +134,13 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
     valid = candidates; // the tab defines the session; order match is sufficient
   } else if (hasDiscrete) {
     valid = candidates.filter(
-      (r) => passDateYMD(get(r.values, col.date)) === clock.ymd &&
+      (r) => passDateYMD(get(r.values, col.date)) === targetDateYmd &&
              norm(get(r.values, col.passType)).toLowerCase() === session.toLowerCase()
     );
   } else if (col.key !== -1) {
     // Collapsed variant: key = order + dateSerial + PassType (+ FoodOption). Match on
     // the prefix so both veg/non-veg variants of the same session are caught.
-    const prefix = `${order}${todaySerial}${session}`.toLowerCase();
+    const prefix = `${order}${targetSerial}${session}`.toLowerCase();
     valid = candidates.filter((r) => norm(get(r.values, col.key)).toLowerCase().startsWith(prefix));
   } else {
     valid = candidates; // last resort: order only

@@ -26,9 +26,18 @@ test("sets and merges scanSheet and guestSheets", async () => {
   assert.deepEqual(c.guestSheets, ["Friday Lunch", "Saturday Dinner"]);
 });
 
+test("accepts event-date and cutoff settings", async () => {
+  await setConfig({ cutoff: "1700", eventDate: "2025-09-26" });
+  const c = await getConfig();
+  assert.equal(c.cutoff, "1700");
+  assert.equal(c.eventDate, "2025-09-26");
+});
+
 test("ignores non-string entries and bad types", async () => {
-  await setConfig({ guestSheets: ["A", 5, null, "B"], scanSheet: 123 });
+  await setConfig({ guestSheets: ["A", 5, null, "B"], scanSheet: 123, cutoff: 1700, eventDate: 1234 });
   const c = await getConfig();
   assert.equal(c.scanSheet, "");
+  assert.equal(c.cutoff, "1700");
+  assert.equal(c.eventDate, "");
   assert.deepEqual(c.guestSheets, ["A", "B"]);
 });

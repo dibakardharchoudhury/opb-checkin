@@ -17,7 +17,7 @@ import {
   listWorksheets, firstTableName, readWorksheetUsedRange, listWorkbooks,
   addTableRows, tableHeaders, ensureLogTable,
 } from "./graph.js";
-import { evaluateScan, nowInZone } from "./rules.js";
+import { evaluateScan, nowInZone, normalizeCutoff, normalizeEventDate } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
 import { listStoredUsers, upsertUser, removeUser } from "./userstore.js";
 import { getConfig, setConfig } from "./configstore.js";
@@ -26,10 +26,17 @@ const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
 // Meal cut-off (CET, HHmm): strictly after this only Dinner passes are valid, else Lunch.
 // Ported from OPB_Excel_QRCodeScannerFlow (was 1400; OPB now uses 1600). Configurable.
-const SESSION_CUTOFF = Number.parseInt(process.env.SESSION_CUTOFF, 10) || 1600;
+const DEFAULT_SESSION_CUTOFF = normalizeCutoff(process.env.SESSION_CUTOFF || 1600);
 // Default false = apply the flow's date + meal validation (a pass is valid only for its own
 // date and the current meal window). Set SHEET_SCOPED=true to fall back to order-only matching.
 const SHEET_SCOPED = /^(1|true|yes)$/i.test(process.env.SHEET_SCOPED || "");
+
+async function validationSettings() {
+  const cfg = await getConfig();
+  const cutoff = normalizeCutoff(cfg.cutoff || process.env.SESSION_CUTOFF || DEFAULT_SESSION_CUTOFF);
+  const eventDate = normalizeEventDate(cfg.eventDate || process.env.EVENT_DATE || null);
+  return { cutoff, eventDate };
+}
 
 // Friendly workbook (spreadsheet) name derived from the env-configured locator.
 function workbookName() {
@@ -130,6 +137,8 @@ app.post("/api/config", requireAuth("admin"), async (req, res) => {
   }
   if ("scanSheet" in (req.body || {})) patch.scanSheet = String(req.body.scanSheet || "");
   if ("guestSheets" in (req.body || {})) patch.guestSheets = Array.isArray(req.body.guestSheets) ? req.body.guestSheets.map((s) => String(s)) : [];
+  if ("cutoff" in (req.body || {})) patch.cutoff = req.body.cutoff;
+  if ("eventDate" in (req.body || {})) patch.eventDate = req.body.eventDate;
   try { tabsCache = { key: "", at: 0, data: null }; res.json(await setConfig(patch)); }
   catch (e) { res.status(500).json({ error: "Could not save configuration." }); }
 });
@@ -245,7 +254,8 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
 
     const table = await tableForSheet(token, base, session, sheet);
     const { headers, rows } = await readTable(token, base, session, table);
-    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, cutoff: SESSION_CUTOFF, sheetScoped: SHEET_SCOPED });
+    const { cutoff, eventDate } = await validationSettings();
+    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: SHEET_SCOPED });
 
     if (result.decision === "SUCCESS") {
       for (const item of result.patch) await patchRow(token, base, session, table, item);
@@ -398,7 +408,7 @@ function weekdayName(tz, when = new Date()) {
 
 // Build a row in an existing table's own column order by matching each header to a field.
 // fields = [[synonyms[], value], …]; unmatched headers get "".
-function rowForHeaders(headers, fields) {
+export function rowForHeaders(headers, fields) {
   return headers.map((h) => {
     const low = String(h ?? "").trim().toLowerCase();
     for (const [syns, val] of fields) if (syns.some((s) => low === s || low.includes(s))) return val;
@@ -406,13 +416,13 @@ function rowForHeaders(headers, fields) {
   });
 }
 
-function findCol(headers, cands) {
+export function findCol(headers, cands) {
   const low = headers.map((h) => String(h ?? "").trim().toLowerCase());
   for (const c of cands) { const i = low.findIndex((h) => h.includes(c)); if (i !== -1) return i; }
   return -1;
 }
 // Parse a price cell that may read "120", "120,-", "120 kr", "kr 120,50".
-function parsePrice(v) {
+export function parsePrice(v) {
   if (typeof v === "number") return isFinite(v) ? v : 0;
   const s = String(v ?? "").replace(/[^0-9.,]/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".");
   const n = parseFloat(s); return isFinite(n) ? n : 0;

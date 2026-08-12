@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateScan, excelSerial, sessionFor, passDateYMD, nowInZone } from "./rules.js";
+import { rowForHeaders, parsePrice } from "./server.js";
 
 // Variant A — discrete columns (Oslo Durgotsav 2025 App_Source shape).
 const headersA = ["RegistrationID", "UniqueKey", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Status", "DateTime"];
@@ -159,4 +160,51 @@ test("flow: already-registered today's pass returns ALREADY, not a re-register",
   const r = evaluateScan({ headers: headersA, rows, orderNumber: "7000", now: satEve });
   assert.equal(r.decision, "ALREADY");
   assert.match(r.response, /already registered/i);
+});
+
+test("configurable event date + cutoff override the current day", () => {
+  const rows = [{ ...rowA(8000, serial, "Lunch", "Yes"), index: 50 }];
+  const r = evaluateScan({
+    headers: headersA,
+    rows,
+    orderNumber: "8000",
+    now: new Date("2026-08-12T12:00:00Z"),
+    eventDate: "2025-09-26",
+    cutoff: 1600,
+  });
+  assert.equal(r.decision, "SUCCESS");
+  assert.equal(r.patch.length, 1);
+});
+
+test("parking and food stall sample rows format and price correctly", () => {
+  const foodHeaders = ["DateTime", "Day", "Name", "Item", "Qty", "UnitPrice", "Amount", "RecordedBy"];
+  const foodRow = rowForHeaders(foodHeaders, [
+    [["datetime", "date time", "time"], "2025-09-26T17:15:00.000"],
+    [["day"], "Saturday"],
+    [["name"], "Dibakar Dharchoudhury"],
+    [["item", "dish", "food"], "Veg Thali"],
+    [["qty", "quantity"], 2],
+    [["unitprice", "unit price", "price", "rate"], 120],
+    [["amount", "total"], 240],
+    [["recordedby", "recorded by", "volunteer", "by"], "volunteer@opb.no"],
+  ]);
+  assert.equal(foodRow[2], "Dibakar Dharchoudhury");
+  assert.equal(foodRow[3], "Veg Thali");
+  assert.equal(foodRow[4], 2);
+  assert.equal(parsePrice("kr 120,50"), 120.5);
+
+  const parkingHeaders = ["Date", "Sl No", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
+  const parkingRow = rowForHeaders(parkingHeaders, [
+    [["date"], "2025-09-26"],
+    [["sl", "serial", "s.no", "sno", "#"], 1],
+    [["name"], "Dibakar Dharchoudhury"],
+    [["mobile", "phone", "contact"], "+47 400 00 000"],
+    [["registration", "reg", "plate", "number plate", "car number"], "EL12345"],
+    [["make"], "Volvo"],
+    [["model"], "XC60"],
+    [["colour", "color"], "Silver"],
+  ]);
+  assert.equal(parkingRow[1], 1);
+  assert.equal(parkingRow[4], "EL12345");
+  assert.equal(parkingRow[7], "Silver");
 });

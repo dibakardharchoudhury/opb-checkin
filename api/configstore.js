@@ -2,9 +2,8 @@
 //
 // Persisted as JSON on the App Service persistent share (same place as the user
 // store), so an admin's choices apply to every volunteer device — not just their
-// own browser. Two settings today:
-//   scanSheet    the active event-session worksheet volunteers check guests into
-//   guestSheets  the worksheets volunteers may view in the Guest List
+// own browser. The shared settings cover the active event, the current cut-off,
+// and the volunteer-visible tabs.
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -18,8 +17,23 @@ const DATA_DIR = process.env.DATA_DIR
     : path.join(os.tmpdir(), "opb-data"));
 const FILE = path.join(DATA_DIR, "opb-config.json");
 
-const DEFAULT = { workbook: null, scanSheet: "", guestSheets: [] };
+const DEFAULT = { workbook: null, scanSheet: "", guestSheets: [], cutoff: "", eventDate: "" };
 let cache = null;
+
+function normalizeCutoff(v) {
+  if (v == null || v === "") return "";
+  const s = String(v).trim().replace(/:/g, "");
+  if (!/^\d{3,4}$/.test(s)) return "";
+  const n = Number.parseInt(s, 10);
+  return Number.isFinite(n) ? String(n).padStart(4, "0") : "";
+}
+
+function normalizeEventDate(v) {
+  if (v == null || v === "") return "";
+  const s = String(v).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return "";
+  return s;
+}
 
 function normalize(c) {
   const wb = c?.workbook && typeof c.workbook.id === "string"
@@ -29,6 +43,8 @@ function normalize(c) {
     workbook: wb,
     scanSheet: typeof c?.scanSheet === "string" ? c.scanSheet : "",
     guestSheets: Array.isArray(c?.guestSheets) ? c.guestSheets.filter((s) => typeof s === "string") : [],
+    cutoff: normalizeCutoff(c?.cutoff),
+    eventDate: normalizeEventDate(c?.eventDate),
   };
 }
 
@@ -50,6 +66,8 @@ export async function setConfig(patch) {
       ? { id: patch.workbook.id, name: typeof patch.workbook.name === "string" ? patch.workbook.name : "" } : null;
     if ("scanSheet" in patch) c.scanSheet = typeof patch.scanSheet === "string" ? patch.scanSheet : "";
     if ("guestSheets" in patch) c.guestSheets = Array.isArray(patch.guestSheets) ? patch.guestSheets.filter((s) => typeof s === "string") : [];
+    if ("cutoff" in patch) c.cutoff = normalizeCutoff(patch.cutoff);
+    if ("eventDate" in patch) c.eventDate = normalizeEventDate(patch.eventDate);
   }
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(FILE, JSON.stringify(c, null, 2));
