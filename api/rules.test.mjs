@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateScan, excelSerial, sessionFor, passDateYMD, nowInZone } from "./rules.js";
-import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu, applyFoodDues, normalizeParkingRow } from "./server.js";
+import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu, applyFoodDues, normalizeParkingRow, deFormula } from "./server.js";
 
 // Variant A — discrete columns (Oslo Durgotsav 2025 App_Source shape).
 const headersA = ["RegistrationID", "UniqueKey", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Status", "DateTime"];
@@ -275,4 +275,12 @@ test("parking: normalize aligns app rows and leaves manual rows intact", () => {
   assert.deepEqual(
     normalizeParkingRow([1, "", "Arijit Chatterjee", 92563402, "EH60013", "Tesla", "Model X", "Blue"]),
     [1, "", "Arijit Chatterjee", 92563402, "EH60013", "Tesla", "Model X", "Blue"]);
+});
+
+test("security: deFormula neutralizes spreadsheet formula injection, keeps phones", () => {
+  assert.equal(deFormula("=HYPERLINK(\"http://evil\")"), "'=HYPERLINK(\"http://evil\")");
+  assert.equal(deFormula("@SUM(A1)"), "'@SUM(A1)");
+  assert.equal(deFormula("-cmd|calc"), "'-cmd|calc");
+  assert.equal(deFormula("+47 400 00 000"), "+47 400 00 000"); // phone: sign then digit stays
+  assert.equal(deFormula("Prasenjit"), "Prasenjit");           // ordinary text untouched
 });

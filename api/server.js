@@ -418,7 +418,13 @@ const PARKING_SHEET = "Parking";
 const PARKING_TABLE = "ParkingLog";
 const PARKING_HEADERS = ["Sl No", "Timestamp", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
 const MAXLEN = 120;
-const clean = (v) => String(v == null ? "" : v).replace(/[\r\n\t]+/g, " ").trim().slice(0, MAXLEN);
+// Neutralize spreadsheet formula injection: a cell starting with = or @ (or a non-numeric
+// + / -) can be executed as a formula by Excel. Prefix such text with an apostrophe so it
+// is stored as literal text. Phone numbers like "+47…" (sign then digit) are left intact.
+export function deFormula(s) {
+  return (/^[=@\t\r]/.test(s) || /^[+\-](?![0-9])/.test(s)) ? "'" + s : s;
+}
+const clean = (v) => deFormula(String(v == null ? "" : v).replace(/[\r\n\t]+/g, " ").trim().slice(0, MAXLEN));
 
 // Weekday name (e.g. "Saturday") for the event-day column, in the configured timezone.
 function weekdayName(tz, when = new Date()) {
@@ -580,12 +586,14 @@ app.post("/api/food-entry", requireAuth(), async (req, res) => {
   try {
     const { loc } = await wbContext();
     token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
-    const menu = await readFoodMenu(token, base, session);
+    const [menu, rawRange] = await Promise.all([
+      readFoodMenu(token, base, session),
+      readUsedRangeRaw(token, base, session, FOOD_DUES_SHEET),
+    ]);
     const priceByName = (nm) => { const hit = menu.find((m) => m.item.toLowerCase() === String(nm).toLowerCase()); return hit ? hit.price : 0; };
     const addedAmount = items.reduce((s, i) => s + priceByName(i.item) * i.qty, 0);
 
     // --- Primary: update the Food Stall-Dues matrix ---
-    const rawRange = await readUsedRangeRaw(token, base, session, FOOD_DUES_SHEET);
     const values = rawRange.values;
     let hRow = values.findIndex((r) => r.some((c) => lc(c) === "name") && r.some((c) => lc(c) === "total"));
     if (hRow === -1) hRow = values.findIndex((r) => r.some((c) => lc(c) === "name"));

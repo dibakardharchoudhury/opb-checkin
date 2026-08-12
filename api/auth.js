@@ -66,7 +66,16 @@ export async function resolveRoleMerged(email) {
 }
 
 const SESSION_TTL_SECONDS = 12 * 3600;
-const secretKey = () => new TextEncoder().encode(process.env.SESSION_SECRET || "dev-only-insecure-secret");
+// Fail closed in production: a missing SESSION_SECRET on Azure would let anyone forge a
+// session with the weak dev fallback. Locally (no WEBSITE_INSTANCE_ID) the dev value is fine.
+const secretKey = () => {
+  const s = process.env.SESSION_SECRET;
+  if (!s) {
+    if (process.env.WEBSITE_INSTANCE_ID) throw new Error("SESSION_SECRET must be configured in production");
+    return new TextEncoder().encode("dev-only-insecure-secret");
+  }
+  return new TextEncoder().encode(s);
+};
 
 export async function issueSession({ email, name, role }) {
   return new SignJWT({ name, role })
