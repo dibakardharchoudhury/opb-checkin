@@ -18,7 +18,7 @@ import {
   addTableRows, tableHeaders, ensureLogTable,
   readUsedRangeRaw, writeRange, deleteTable, createTable, colLetter,
 } from "./graph.js";
-import { evaluateScan, nowInZone, normalizeCutoff, normalizeEventDate } from "./rules.js";
+import { evaluateScan, nowInZone, normalizeCutoff, normalizeEventDate, passDateYMD } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
 import { listStoredUsers, upsertUser, removeUser } from "./userstore.js";
 import { getConfig, setConfig } from "./configstore.js";
@@ -270,6 +270,39 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
   }
 });
 
+// GET /api/lookup?q=<name or order> -> distinct orders on the active scan sheet, so a
+// volunteer can register a guest (e.g. a season-pass holder) by name instead of a QR.
+app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
+  const q = String(req.query.q || "").trim().toLowerCase();
+  if (q.length < 2) return res.json({ matches: [] });
+  let token, base, session;
+  try {
+    const { loc } = await wbContext();
+    const cfg = await getConfig();
+    const sheet = String(cfg.scanSheet || "").trim();
+    token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    const table = await tableForSheet(token, base, session, sheet);
+    const { headers, rows } = await readTable(token, base, session, table);
+    const c = colFinder(headers);
+    const seen = new Map();
+    for (const r of rows) {
+      const v = r.values;
+      const order = String(v[c.order] ?? "").trim();
+      if (!order) continue;
+      const name = `${c.first !== -1 ? String(v[c.first] ?? "") : ""} ${c.last !== -1 ? String(v[c.last] ?? "") : ""}`.trim();
+      if (!`${order} ${name}`.toLowerCase().includes(q)) continue;
+      if (!seen.has(order)) seen.set(order, { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "" });
+      if (seen.size >= 25) break;
+    }
+    res.json({ matches: [...seen.values()] });
+  } catch (e) {
+    console.error("lookup failed:", e?.message || e);
+    res.status(500).json({ error: "Lookup failed — please retry." });
+  } finally {
+    if (token && base && session) await closeSession(token, base, session);
+  }
+});
+
 // GET /api/sheet?tabs=A,B -> { sheets: [{ name, table, headers, rows, count }], updatedAt }
 // One entry per requested worksheet. With no ?tabs, reads the configured TABLE_NAME
 // (legacy single-sheet mode). Short-cached per tab-set so opening the list is cheap.
@@ -330,6 +363,7 @@ function colFinder(headers) {
     status: find(["status"]), dt: find(["datetime", "date time"]),
     first: find(["first name", "firstname"]), last: find(["last name", "lastname"]),
     item: find(["item", "pass type", "passtype"]),
+    date: find(["date"]), meal: find(["passtype", "pass type"]),
   };
 }
 // Bucket a free-text item/pass into a tidy category for aggregation.
@@ -361,6 +395,7 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     const allTabs = await listWorksheets(token, base, session);
     const tabs = scan ? [scan] : (allow.size ? allTabs.filter((t) => allow.has(t)) : allTabs);
     const sessions = []; const recent = []; const passCounts = {}; let total = 0, registered = 0;
+    const byDate = {}; // date (YYYY-MM-DD) -> { valid, registered } — season-pass footfall per day
     // Read the check-in sheet(s) plus the food/parking aggregates concurrently.
     const [reads, food, parking] = await Promise.all([
       mapLimit(tabs, 6, async (t) => {
@@ -384,7 +419,10 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
         const v = r.values;
         if (String(v[c.order] ?? "").trim() === "") continue; // skip empty pre-numbered slots
         tot++;
-        if (String(v[c.status] ?? "").trim().toUpperCase() === "REGISTERED") {
+        const ymd = c.date !== -1 ? passDateYMD(v[c.date]) : null;
+        const isReg = String(v[c.status] ?? "").trim().toUpperCase() === "REGISTERED";
+        if (ymd) { const b = (byDate[ymd] = byDate[ymd] || { valid: 0, registered: 0 }); b.valid++; if (isReg) b.registered++; }
+        if (isReg) {
           reg++;
           const cat = passCategory(c.item !== -1 ? v[c.item] : "");
           passCounts[cat] = (passCounts[cat] || 0) + 1;
@@ -399,7 +437,8 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     }
     recent.sort((a, b) => String(b.time).localeCompare(String(a.time)));
     const byPass = Object.entries(passCounts).map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count);
-    const data = { workbook: name, sessions, byPass, totals: { total, registered }, recent, food, parking, updatedAt: new Date().toISOString() };
+    const byDateArr = Object.entries(byDate).map(([date, x]) => ({ date, valid: x.valid, registered: x.registered })).sort((a, b) => a.date.localeCompare(b.date));
+    const data = { workbook: name, sessions, byPass, byDate: byDateArr, totals: { total, registered }, recent, food, parking, updatedAt: new Date().toISOString() };
     summaryCache = { key, at: Date.now(), data };
     res.json(data);
   } catch (e) {

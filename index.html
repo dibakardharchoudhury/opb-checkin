@@ -183,6 +183,11 @@
     background:var(--ivory); color:var(--ink); font-size:15px; font-family:inherit; }
   .entryform input:focus, .entryform select:focus { outline:none; border-color:var(--maroon); box-shadow:0 0 0 3px rgba(110,21,38,.12); }
   .entryform #foodSave, .entryform #pkSave { margin-top:4px; }
+  .lookup-list { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+  .lookup-item { text-align:left; width:100%; background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:10px; padding:10px 12px; cursor:pointer; font-family:inherit; color:var(--ink); }
+  .lookup-item b { font-size:14.5px; }
+  .lookup-item span { color:var(--muted); font-size:12px; margin-left:6px; }
+  .lookup-item:hover { border-color:var(--maroon); box-shadow:0 0 0 3px rgba(110,21,38,.10); }
   .foodmenu-cap { font-size:11.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--maroon); margin:6px 0 10px; }
   .foodmenu { display:flex; flex-direction:column; gap:8px; max-height:340px; overflow:auto; margin-bottom:12px; }
   .fooditem { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid rgba(217,164,65,.22); }
@@ -514,9 +519,10 @@
             <button id="rescanBtn" class="ghost hidden">Scan next</button>
           </div>
           <div class="row">
-            <input id="manual" inputmode="numeric" placeholder="Or type order number" />
-            <button id="manualBtn" class="ghost" style="flex:0 0 128px">Manual Entry</button>
+            <input id="manual" placeholder="Order number or name" autocomplete="off" />
+            <button id="manualBtn" class="ghost" style="flex:0 0 128px">Register</button>
           </div>
+          <div id="lookupList" class="lookup-list"></div>
         </div>
       </div>
 
@@ -534,6 +540,7 @@
       </div>
       <div class="kpis" id="dashKpis"></div>
       <div class="dayfilter" id="dayFilter"></div>
+      <div class="dashcard"><div class="dashcap">Registrations by date &mdash; valid vs checked-in <span id="dateNote" class="dashcap-note"></span></div><div class="chartbox chartbox-wide"><canvas id="chartDate"></canvas></div></div>
       <div class="dashgrid">
         <div class="dashcard"><div class="dashcap">Attendance by day &amp; session <span class="cap-toggle" id="stackToggle" role="button" tabindex="0" title="Toggle grouped / stacked">Grouped</span></div><div class="chartbox"><canvas id="chartDay"></canvas></div></div>
         <div class="dashcard"><div class="dashcap">By pass type <span id="passNote" class="dashcap-note"></span></div><div class="chartbox"><canvas id="chartPass"></canvas></div></div>
@@ -691,8 +698,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.43"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-12T21:00:16Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.44"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-12T21:11:46Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -815,8 +822,25 @@ function loadZxing() {
 
 $("startBtn").onclick = startCamera;
 $("rescanBtn").onclick = () => { lastValue = ""; setBanner("Scanning\u2026"); sub.textContent = ""; };
-$("manualBtn").onclick = () => { const v = $("manual").value.trim(); if (v) { submitOrder(v); $("manual").value = ""; } };
-$("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("manualBtn").click(); });
+// Manual/volunteer registration: a number registers directly; text looks the guest up by
+// name so a volunteer can register a season-pass holder without a QR.
+async function doManualRegister() {
+  const v = $("manual").value.trim(); if (!v) return;
+  if (/^\d+$/.test(v)) { submitOrder(v); $("manual").value = ""; $("lookupList").innerHTML = ""; return; }
+  $("lookupList").innerHTML = '<div class="hint">Searching\u2026</div>';
+  try {
+    const r = await api("/api/lookup?q=" + encodeURIComponent(v)); const j = await r.json();
+    const m = (j && j.matches) || [];
+    if (!m.length) { $("lookupList").innerHTML = '<div class="sheet-empty">No match for \u201c' + esc(v) + '\u201d.</div>'; return; }
+    $("lookupList").innerHTML = m.map((x) => '<button class="lookup-item" data-order="' + esc(x.order) + '"><b>' + esc(x.name || "(no name)") + '</b><span>#' + esc(x.order) + (x.pass ? " \u00b7 " + esc(x.pass) : "") + "</span></button>").join("");
+  } catch { $("lookupList").innerHTML = '<div class="sheet-empty">Lookup failed \u2014 retry.</div>'; }
+}
+$("manualBtn").onclick = doManualRegister;
+$("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") doManualRegister(); });
+$("lookupList").addEventListener("click", (e) => {
+  const b = e.target.closest(".lookup-item"); if (!b) return;
+  submitOrder(b.dataset.order); $("manual").value = ""; $("lookupList").innerHTML = "";
+});
 $("connRefresh").onclick = () => testConnection();
 
 // ---- worksheet tabs (event sessions) + live guest list ----
@@ -1037,7 +1061,7 @@ function exportCsv() {
 $("sheetExport").onclick = exportCsv;
 
 // ---- dashboard (event-wide analytics + interactive charts) ----
-let _chartDay = null, _chartPass = null, _chartFlow = null, _chartFood = null, _chartParking = null;
+let _chartDay = null, _chartPass = null, _chartFlow = null, _chartFood = null, _chartParking = null, _chartDate = null;
 let _summary = null, _dayFilter = null, _stacked = false;
 const DAY_ORDER = ["Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"];
 const MEAL_ORDER = ["Breakfast", "Lunch", "Dinner", "Free Entry"];
@@ -1096,6 +1120,7 @@ function renderDashboard() {
   renderDayChart(sessions);
   renderPassChart(recent);
   renderFlowChart(recent);
+  renderDateChart(_summary && _summary.byDate);
   renderFoodChart(_summary && _summary.food);
   renderParkingChart(_summary && _summary.parking);
   renderSessions(sessions);
@@ -1193,6 +1218,23 @@ function renderFlowChart(recent) {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
       scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 8, autoSkip: true } } } } });
 }
+// Season-pass footfall: valid passes vs actually checked-in, per event date.
+function fmtDateLabel(ymd) { const d = new Date(String(ymd) + "T12:00:00"); return isNaN(d) ? String(ymd) : d.toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "short" }); }
+function renderDateChart(byDate) {
+  const cv = $("chartDate"); if (!cv || !window.Chart) return;
+  const rows = byDate || [];
+  if (_chartDate) _chartDate.destroy();
+  if (!rows.length) { $("dateNote").textContent = "\u00b7 no dated passes"; _chartDate = null; return; }
+  const tValid = rows.reduce((n, r) => n + (r.valid || 0), 0), tReg = rows.reduce((n, r) => n + (r.registered || 0), 0);
+  $("dateNote").textContent = "\u00b7 " + tReg + " of " + tValid + " checked in";
+  _chartDate = new Chart(cv, { type: "bar", data: { labels: rows.map((r) => fmtDateLabel(r.date)), datasets: [
+    { label: "Valid passes", data: rows.map((r) => r.valid || 0), backgroundColor: "#d9a441", borderRadius: 6, maxBarThickness: 46 },
+    { label: "Checked in", data: rows.map((r) => r.registered || 0), backgroundColor: "#7a1220", borderRadius: 6, maxBarThickness: 46 },
+  ] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 12 } } } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } } } } });
+}
+
 // Food stall: quantity sold per item (horizontal bars); note shows revenue + guests.
 function renderFoodChart(food) {
   const cv = $("chartFood"); if (!cv || !window.Chart) return;
