@@ -698,8 +698,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.44"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-12T21:11:46Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.45"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-12T21:23:06Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1248,15 +1248,16 @@ function renderFoodChart(food) {
       scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } }, y: { grid: { display: false }, ticks: { font: { size: 11 } } } } } });
 }
 
-// Parking: cars broken down by make (doughnut); note shows total cars.
+// Parking: cars broken down by make (bar); note shows total cars.
 function renderParkingChart(parking) {
   const cv = $("chartParking"); if (!cv || !window.Chart) return;
   const byMake = (parking && parking.byMake) || [];
   if (_chartParking) _chartParking.destroy();
   if (!byMake.length) { $("parkNote").textContent = "\u00b7 no cars yet"; _chartParking = null; return; }
   $("parkNote").textContent = "\u00b7 " + (parking.total || 0) + " cars";
-  _chartParking = new Chart(cv, { type: "doughnut", data: { labels: byMake.map((m) => m.label), datasets: [{ data: byMake.map((m) => m.count), backgroundColor: byMake.map((_, i) => PALETTE[i % PALETTE.length]), borderColor: "#fff", borderWidth: 2 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: "58%", plugins: { legend: { position: "right", labels: { boxWidth: 12, font: { size: 12 } } } } } });
+  _chartParking = new Chart(cv, { type: "bar", data: { labels: byMake.map((m) => m.label), datasets: [{ label: "Cars", data: byMake.map((m) => m.count), backgroundColor: byMake.map((_, i) => PALETTE[i % PALETTE.length]), borderRadius: 6, maxBarThickness: 46 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } } } } });
 }
 $("dashRefresh").onclick = () => loadDashboard(true);
 
@@ -1348,15 +1349,21 @@ $("foodRefresh").onclick = () => { _namesLoaded = false; loadGuestNames(); loadF
 const setPkMsg = (m, cls) => { const e = $("pkMsg"); e.textContent = m || ""; e.className = "entrymsg" + (cls ? " " + cls : ""); };
 const validPhone = (s) => /^\+?[0-9][0-9 ]{5,15}$/.test(s);
 const validReg = (s) => /^[A-Za-z0-9 -]{2,12}$/.test(s) && s.replace(/[^A-Za-z0-9]/g, "").length >= 2;
+const isName = (s) => /^[\p{L}][\p{L} .'-]*$/u.test(s);          // letters + spaces/punct, no digits
+const isWord = (s) => /^[\p{L}][\p{L} .-]*$/u.test(s);           // make/colour: letters only, no digits
+const isModel = (s) => /^[\p{L}\p{N} .-]+$/u.test(s) && /\p{L}/u.test(s); // letters+digits, at least one letter
 async function savePark() {
   const b = {
     name: $("pkName").value.trim(), mobile: $("pkMobile").value.trim(), reg: $("pkReg").value.trim(),
     make: $("pkMake").value.trim(), model: $("pkModel").value.trim(), colour: $("pkColour").value.trim(), date: $("pkDate").value,
   };
-  if (b.name.length < 2) { setPkMsg("Enter the guest's name.", "err"); $("pkName").focus(); return; }
+  if (b.name.length < 2 || !isName(b.name)) { setPkMsg("Guest name should be letters only.", "err"); $("pkName").focus(); return; }
   if (!b.reg && !b.mobile) { setPkMsg("Enter a car registration or a mobile number.", "err"); $("pkReg").focus(); return; }
   if (b.mobile && !validPhone(b.mobile)) { setPkMsg("Mobile number looks invalid \u2014 digits only, e.g. +47 400 00 000.", "err"); $("pkMobile").focus(); return; }
   if (b.reg && !validReg(b.reg)) { setPkMsg("Car registration looks invalid \u2014 letters/numbers, e.g. EL12345.", "err"); $("pkReg").focus(); return; }
+  if (b.make && !isWord(b.make)) { setPkMsg("Make should be letters, e.g. Toyota.", "err"); $("pkMake").focus(); return; }
+  if (b.model && !isModel(b.model)) { setPkMsg("Model looks invalid, e.g. Corolla or XC40.", "err"); $("pkModel").focus(); return; }
+  if (b.colour && !isWord(b.colour)) { setPkMsg("Colour should be letters, e.g. Silver.", "err"); $("pkColour").focus(); return; }
   if (!b.date) { setPkMsg("Pick a date.", "err"); $("pkDate").focus(); return; }
   setPkMsg("Saving\u2026", "busy"); $("pkSave").disabled = true;
   try {
