@@ -496,7 +496,7 @@
           </div>
           <div id="viewport">
             <video id="video" playsinline muted></video>
-            <div id="vpIdle">
+            <div id="vpIdle" role="button" tabindex="0" title="Tap to open the camera" style="cursor:pointer">
               <div class="vpicon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M4 8V5a1 1 0 0 1 1-1h3"/><path d="M16 4h3a1 1 0 0 1 1 1v3"/>
@@ -505,7 +505,7 @@
                 </svg>
               </div>
               <div class="vptitle">Ready to scan</div>
-              <div class="vphint">Tap &ldquo;Scan QR Code&rdquo; to open the camera.</div>
+              <div class="vphint">Tap the icon or &ldquo;Scan QR Code&rdquo; to open the camera.</div>
             </div>
             <div id="reticle"></div>
             <div class="scanline"></div>
@@ -698,8 +698,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.45"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-12T21:23:06Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.46"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-12T21:25:44Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -821,6 +821,9 @@ function loadZxing() {
 }
 
 $("startBtn").onclick = startCamera;
+// The idle "Ready to scan" overlay acts as a big tap target for the same action.
+$("vpIdle").onclick = startCamera;
+$("vpIdle").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startCamera(); } });
 $("rescanBtn").onclick = () => { lastValue = ""; setBanner("Scanning\u2026"); sub.textContent = ""; };
 // Manual/volunteer registration: a number registers directly; text looks the guest up by
 // name so a volunteer can register a season-pass holder without a QR.
