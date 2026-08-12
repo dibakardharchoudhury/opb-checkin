@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateScan, excelSerial, sessionFor, passDateYMD, nowInZone } from "./rules.js";
-import { rowForHeaders, parsePrice } from "./server.js";
+import { rowForHeaders, parsePrice, parkingStamp } from "./server.js";
 
 // Variant A — discrete columns (Oslo Durgotsav 2025 App_Source shape).
 const headersA = ["RegistrationID", "UniqueKey", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Status", "DateTime"];
@@ -193,9 +193,11 @@ test("parking and food stall sample rows format and price correctly", () => {
   assert.equal(foodRow[4], 2);
   assert.equal(parsePrice("kr 120,50"), 120.5);
 
-  const parkingHeaders = ["Date", "Sl No", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
+  const parkingHeaders = ["Timestamp", "Sl No", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
+  const stamp = parkingStamp("2025-09-26", { h: 17, mi: 5, s: 9 });
+  assert.equal(stamp, "2025-09-26 17:05:09");
   const parkingRow = rowForHeaders(parkingHeaders, [
-    [["date"], "2025-09-26"],
+    [["timestamp", "date", "time"], stamp],
     [["sl", "serial", "s.no", "sno", "#"], 1],
     [["name"], "Dibakar Dharchoudhury"],
     [["mobile", "phone", "contact"], "+47 400 00 000"],
@@ -204,7 +206,14 @@ test("parking and food stall sample rows format and price correctly", () => {
     [["model"], "XC60"],
     [["colour", "color"], "Silver"],
   ]);
+  assert.equal(parkingRow[0], "2025-09-26 17:05:09");
   assert.equal(parkingRow[1], 1);
   assert.equal(parkingRow[4], "EL12345");
   assert.equal(parkingRow[7], "Silver");
+
+  // The timestamp also lands in a legacy "Date"-named first column.
+  const legacy = rowForHeaders(["Date", "Sl No", "Name"], [
+    [["timestamp", "date", "time"], stamp], [["sl", "serial", "s.no", "sno", "#"], 2], [["name"], "A"],
+  ]);
+  assert.equal(legacy[0], "2025-09-26 17:05:09");
 });

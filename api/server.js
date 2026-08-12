@@ -397,13 +397,19 @@ const FOOD_LOG_TABLE = "FoodStallLog";
 const FOOD_LOG_HEADERS = ["DateTime", "Day", "Name", "Item", "Qty", "UnitPrice", "Amount", "RecordedBy"];
 const PARKING_SHEET = "Parking";
 const PARKING_TABLE = "ParkingLog";
-const PARKING_HEADERS = ["Date", "Sl No", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
+const PARKING_HEADERS = ["Timestamp", "Sl No", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
 const MAXLEN = 120;
 const clean = (v) => String(v == null ? "" : v).replace(/[\r\n\t]+/g, " ").trim().slice(0, MAXLEN);
 
 // Weekday name (e.g. "Saturday") for the event-day column, in the configured timezone.
 function weekdayName(tz, when = new Date()) {
   try { return new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(when); } catch { return ""; }
+}
+
+// Compose a workbook timestamp: the calendar-picked date + the current wall-clock time.
+export function parkingStamp(dateYmd, clock) {
+  const two = (n) => String(n).padStart(2, "0");
+  return `${dateYmd} ${two(clock.h)}:${two(clock.mi)}:${two(clock.s)}`;
 }
 
 // Build a row in an existing table's own column order by matching each header to a field.
@@ -519,8 +525,9 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
     const headers = await tableHeaders(token, base, session, table);
     let slNo = "";
     try { const read = await readTable(token, base, session, table); slNo = read.rows.length + 1; } catch { /* optional */ }
+    const stamp = parkingStamp(f.date, nowInZone(TZ));
     const row = rowForHeaders(headers, [
-      [["date"], f.date], [["sl", "serial", "s.no", "sno", "#"], slNo], [["name"], f.name],
+      [["timestamp", "date", "time"], stamp], [["sl", "serial", "s.no", "sno", "#"], slNo], [["name"], f.name],
       [["mobile", "phone", "contact"], f.mobile], [["registration", "reg", "plate", "number plate", "car number"], f.reg],
       [["make"], f.make], [["model"], f.model], [["colour", "color"], f.colour],
     ]);
@@ -533,7 +540,7 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-if (process.env.PORT !== "0") {
+if (process.env.PORT !== "0" && process.env.npm_lifecycle_event !== "test") {
   app.listen(PORT, () => console.log(`OPB check-in backend on :${PORT} (tz=${TZ}, table=${TABLE_NAME})`));
 }
 
