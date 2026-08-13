@@ -253,19 +253,33 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
     base = workbookBase(loc);
     session = await openSession(token, base);
 
-    const table = await tableForSheet(token, base, session, sheet);
-    const { headers, rows } = await readTable(token, base, session, table);
     const { cutoff, eventDate } = await validationSettings();
-    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: SHEET_SCOPED, registeredBy: req.user.email, comments: "ScannedByApp" });
+    let useTable = await tableForSheet(token, base, session, sheet);
+    let useSheet = sheet;
+    let read = await readTable(token, base, session, useTable);
+    let result = evaluateScan({ headers: read.headers, rows: read.rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: SHEET_SCOPED, registeredBy: req.user.email, comments: "ScannedByApp" });
+
+    // Walk-ins live in their own sheet — if the id isn't in the scan sheet, register against it too.
+    if (result.decision === "INVALID" && result.reason === "not_found") {
+      try {
+        const wt = await firstTableName(token, base, session, WALKIN_SHEET);
+        if (wt) {
+          const wd = await readTable(token, base, session, wt);
+          const wr = evaluateScan({ headers: wd.headers, rows: wd.rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: true, registeredBy: req.user.email, comments: "ScannedByApp" });
+          if (!(wr.decision === "INVALID" && wr.reason === "not_found")) { result = wr; useTable = wt; useSheet = WALKIN_SHEET; }
+        }
+      } catch { /* walk-ins optional */ }
+    }
 
     let passesRegistered = result.orderRegistered || 0;
     if (result.decision === "SUCCESS") {
-      for (const item of result.patch) await patchRow(token, base, session, table, item);
+      for (const item of result.patch) await patchRow(token, base, session, useTable, item);
       passesRegistered += result.patchQuantity || result.patch.length; // passes just flipped to REGISTERED
+      if (useSheet === WALKIN_SHEET) { summaryCache = { key: "", at: 0, data: null }; sheetCache = { key: "", at: 0, data: null }; }
     }
     res.json({
       response: result.response, customername: result.customerName, decision: result.decision,
-      sheet: sheet || table, reason: result.reason || null, session: result.session,
+      sheet: useSheet || useTable, reason: result.reason || null, session: result.session,
       passesRegistered, passesTotal: result.orderTotal || 0,
     });
   } catch (e) {
@@ -287,20 +301,25 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
     const cfg = await getConfig();
     const sheet = String(cfg.scanSheet || "").trim();
     token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    // Search the scan sheet AND the walk-ins sheet so name/order lookup finds gate registrations too.
+    const sources = [];
     const table = await tableForSheet(token, base, session, sheet);
-    const { headers, rows } = await readTable(token, base, session, table);
-    const c = colFinder(headers);
+    { const { headers, rows } = await readTable(token, base, session, table); sources.push({ rows, c: colFinder(headers) }); }
+    try {
+      const wt = await firstTableName(token, base, session, WALKIN_SHEET);
+      if (wt) { const { headers, rows } = await readTable(token, base, session, wt); sources.push({ rows, c: colFinder(headers) }); }
+    } catch { /* walk-ins optional */ }
+    const allRows = sources.flatMap((s) => s.rows.map((r) => ({ v: r.values, c: s.c })));
     // Scope to the day being registered: real "today" if it is an event date, else the
     // configured eventDate override, else today (mirrors evaluateScan's date precedence).
     const { eventDate } = await validationSettings();
-    const eventDates = new Set(rows.map((r) => (c.date !== -1 ? passDateYMD(r.values[c.date]) : null)).filter(Boolean));
+    const eventDates = new Set(allRows.map(({ v, c }) => (c.date !== -1 ? passDateYMD(v[c.date]) : null)).filter(Boolean));
     const todayYmd = nowInZone(TZ).ymd;
     const targetYmd = eventDates.has(todayYmd) ? todayYmd : (normalizeEventDate(eventDate) || todayYmd);
     const tierOf = (item) => { const s = String(item ?? ""); const m = s.match(/premium|standard/i); return m ? m[0][0].toUpperCase() + m[0].slice(1).toLowerCase() : ""; };
     const titleCase = (s) => String(s).replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()); // collapse mixed-case values (Lunch/lunch)
     const byOrder = new Map();
-    for (const r of rows) {
-      const v = r.values;
+    for (const { v, c } of allRows) {
       const order = String(v[c.order] ?? "").trim();
       if (!order) continue;
       const name = `${c.first !== -1 ? String(v[c.first] ?? "") : ""} ${c.last !== -1 ? String(v[c.last] ?? "") : ""}`.trim();
@@ -422,7 +441,9 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     // is set do we fall back to the admin's guest sheets, then every worksheet.
     const allow = new Set((cfg.guestSheets || []).map((s) => String(s)));
     const allTabs = await listWorksheets(token, base, session);
-    const tabs = scan ? [scan] : (allow.size ? allTabs.filter((t) => allow.has(t)) : allTabs);
+    let tabs = scan ? [scan] : (allow.size ? allTabs.filter((t) => allow.has(t)) : allTabs);
+    // Always fold in walk-ins so dashboard totals/footfall include gate registrations.
+    if (allTabs.some((t) => t.toLowerCase() === WALKIN_SHEET.toLowerCase()) && !tabs.some((t) => t.toLowerCase() === WALKIN_SHEET.toLowerCase())) tabs = [...tabs, WALKIN_SHEET];
     const sessions = []; const recent = []; const passCounts = {}; let total = 0, registered = 0;
     const byDate = {}; // date (YYYY-MM-DD) -> { valid, registered } — season-pass footfall per day
     // Read the check-in sheet(s) plus the food/parking aggregates concurrently.
@@ -492,6 +513,10 @@ const FOOD_SETTLE_HEADERS = ["DateTime", "Name", "Amount", "Method", "PaidTotal"
 const PARKING_SHEET = "Parking";
 const PARKING_TABLE = "ParkingLog";
 const PARKING_HEADERS = ["Sl No", "Timestamp", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
+const WALKIN_SHEET = "Walk-ins";
+const WALKIN_TABLE = "WalkIns";
+// Mirrors the App_Source pass shape so walk-ins reconcile the same way across search/reports/dashboard.
+const WALKIN_HEADERS = ["RegistrationID", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Mobile Number", "Status", "Comments", "RegisteredBy", "DateTime"];
 const MAXLEN = 120;
 // Neutralize spreadsheet formula injection: a cell starting with = or @ (or a non-numeric
 // + / -) can be executed as a formula by Excel. Prefix such text with an apostrophe so it
@@ -917,10 +942,10 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
 });
 
 // POST /api/walkin { name, mobile?, passType, date?, meal, foodOption?, quantity, comments }
-// Appends a gate walk-in as a REGISTERED pass row into the active scan sheet (App_Source), so it
-// shows up in Reports/dashboard/lookup alongside pre-sold passes. Recorded only after payment: no
-// payment-type field — the payment mode/reference lives in Comments, RegisteredBy = the volunteer.
-// NOTE: App_Source must stay frozen after its initial export, else a re-export would drop these rows.
+// Records a gate walk-in into the app-owned "Walk-ins" sheet (kept separate from App_Source, which
+// is a downstream export). The sheet mirrors the pass shape so search/reports/dashboard/scan all
+// fold walk-ins in. Recorded only after payment: no payment-type field — the payment mode/reference
+// lives in Comments, RegisteredBy = the volunteer. The pass is REGISTERED (attended) on the spot.
 app.post("/api/walkin", requireAuth(), async (req, res) => {
   const name = clean(req.body?.name);
   const mobile = clean(req.body?.mobile);
@@ -940,21 +965,24 @@ app.post("/api/walkin", requireAuth(), async (req, res) => {
   const first = parts.shift() || name, last = parts.join(" ");
   let token, base, session;
   try {
-    const cfg = await getConfig();
-    const sheet = String(cfg.scanSheet || "").trim();
-    if (!sheet) return res.status(400).json({ error: "No scan sheet configured — set the event session in Settings first." });
     const { loc } = await wbContext();
     token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
-    const table = await tableForSheet(token, base, session, sheet);
-    const { headers, rows } = await readTable(token, base, session, table);
-    // Next W-id from the RegistrationID column so walk-ins never collide with numeric source orders.
-    const idIdx = headers.findIndex((h) => /^(registrationid|order\s*number|order|id)$/i.test(String(h ?? "").trim()));
-    const wid = nextWalkinId(idIdx === -1 ? [] : rows.map((r) => r.values[idIdx]));
+    const existed = (await listWorksheets(token, base, session)).some((n) => n.toLowerCase() === WALKIN_SHEET.toLowerCase());
+    const table = await ensureLogTable(token, base, session, WALKIN_SHEET, WALKIN_HEADERS, WALKIN_TABLE);
+    const headers = await tableHeaders(token, base, session, table);
+    // Next W-id from whatever ids already exist on the sheet.
+    let ids = [];
+    try {
+      const rr = await readUsedRangeRaw(token, base, session, WALKIN_SHEET);
+      const hr = rr.values.findIndex((r) => r.some((c) => /registrationid|order/i.test(String(c ?? ""))));
+      const idIdx = hr === -1 ? 0 : (rr.values[hr] || []).findIndex((c) => /registrationid|order/i.test(String(c ?? "")));
+      ids = rr.values.slice((hr === -1 ? 0 : hr) + 1).map((r) => r[idIdx]);
+    } catch { /* optional */ }
+    const wid = nextWalkinId(ids);
     const iso = nowInZone(TZ).iso;
     const val = (h) => {
       const l = lc(h);
       if (l === "registrationid" || l === "order number" || l === "ordernumber" || l === "order" || l === "id") return wid;
-      if (l === "uniquekey" || l === "unique key" || l === "appkey") return wid + meal;
       if (l === "first name" || l === "firstname") return first;
       if (l === "last name" || l === "lastname") return last;
       if (l === "name") return name;
@@ -971,9 +999,10 @@ app.post("/api/walkin", requireAuth(), async (req, res) => {
       return "";
     };
     await addTableRows(token, base, session, table, [headers.map(val)]);
-    summaryCache = { key: "", at: 0, data: null };   // reflect the new row on the dashboard
+    summaryCache = { key: "", at: 0, data: null };   // reflect the new walk-in on the dashboard
     sheetCache = { key: "", at: 0, data: null };      // and in Reports
-    res.json({ ok: true, id: wid, name, quantity: qty, sheet });
+    if (!existed) tabsCache = { key: "", at: 0, data: null }; // surface the new sheet in the tab bar
+    res.json({ ok: true, id: wid, name, quantity: qty, sheet: WALKIN_SHEET });
   } catch (e) {
     console.error("walkin failed:", e?.message || e);
     res.status(500).json({ error: "Could not register the walk-in.", detail: e?.message || String(e) });
