@@ -758,8 +758,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.62"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T14:26:26Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.63"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T14:30:39Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -950,7 +950,7 @@ let gSort = { key: null, dir: 1 };     // key = column index in the active sheet
 async function loadTabs(force) {
   if (tabsFetched && !force) return;
   try {
-    const r = await api("/api/tabs"); const j = await r.json();
+    const r = await api("/api/tabs" + (force ? "?refresh=1" : "")); const j = await r.json();
     if (!r.ok) throw new Error(j.error || "Failed");
     allTabs = j.tabs || []; tabsFetched = true; workbookLabel = j.workbook || "";
     // Populate the admin scan-session dropdown (in Settings); value comes from shared config.
@@ -1105,7 +1105,14 @@ function renderSheet(q) {
   meta.innerHTML = "<span>" + summary + "</span>";
 }
 $("sheetSearch").addEventListener("input", (e) => renderSheet(e.target.value.trim()));
-$("sheetRefresh").onclick = () => { if (activeSheet) selectSheet(activeSheet, true); };
+// Reload the worksheet list (so newly created sheets appear) + refresh the active sheet's rows.
+$("sheetRefresh").onclick = async () => {
+  await loadTabs(true);
+  renderTabBar();
+  const tabs = visibleTabs();
+  if (activeSheet && tabs.includes(activeSheet)) selectSheet(activeSheet, true);
+  else if (tabs.length) selectSheet(tabs[0], false);
+};
 $("gtable").querySelector("thead").addEventListener("click", (e) => {
   const th = e.target.closest("th[data-col]"); if (!th) return;
   const k = th.dataset.col;
@@ -1559,7 +1566,8 @@ function openSettings() {
   const admin = isAdmin();
   $("settingsAdmin").classList.toggle("hidden", !admin);
   $("settingsLocked").classList.toggle("hidden", admin);
-  if (admin) { loadUsers(); loadWorkbooks(); renderCfgSheets(); }
+  // Refresh the worksheet list so newly created sheets are toggleable for volunteers here.
+  if (admin) { loadUsers(); loadWorkbooks(); loadTabs(true).then(renderCfgSheets); }
 }
 function renderCfgSheets() {
   const el = $("cfgSheets"); if (!el) return;

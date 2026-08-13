@@ -207,11 +207,12 @@ async function tableForSheet(token, base, session, sheet) {
 // GET /api/tabs -> { tabs: [names] }  — the workbook's worksheets, for the UI pickers.
 let tabsCache = { key: "", at: 0, data: null };
 app.get("/api/tabs", requireAuth(), async (req, res) => {
+  const fresh = req.query.refresh === "1";
   let token, base, session;
   try {
     const { loc, name } = await wbContext();
     const key = loc || "__env__";
-    if (tabsCache.data && tabsCache.key === key && Date.now() - tabsCache.at < 300_000) return res.json(tabsCache.data);
+    if (!fresh && tabsCache.data && tabsCache.key === key && Date.now() - tabsCache.at < 300_000) return res.json(tabsCache.data);
     token = await getAccessToken();
     base = workbookBase(loc);
     session = await openSession(token, base);
