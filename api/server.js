@@ -492,10 +492,6 @@ const FOOD_SETTLE_HEADERS = ["DateTime", "Name", "Amount", "Method", "PaidTotal"
 const PARKING_SHEET = "Parking";
 const PARKING_TABLE = "ParkingLog";
 const PARKING_HEADERS = ["Sl No", "Timestamp", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
-const WALKIN_SHEET = "Walk-ins";
-const WALKIN_TABLE = "WalkIns";
-// Mirrors the App_Source pass shape so walk-ins reconcile the same way; app-owned, never written to App_Source.
-const WALKIN_HEADERS = ["RegistrationID", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Mobile Number", "Status", "Comments", "RegisteredBy", "DateTime"];
 const MAXLEN = 120;
 // Neutralize spreadsheet formula injection: a cell starting with = or @ (or a non-numeric
 // + / -) can be executed as a formula by Excel. Prefix such text with an apostrophe so it
@@ -921,9 +917,10 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
 });
 
 // POST /api/walkin { name, mobile?, passType, date?, meal, foodOption?, quantity, comments }
-// Records a gate walk-in into the app-owned "Walk-ins" sheet (never App_Source). Recorded only
-// after payment: no payment-type field — the payment mode/reference lives in Comments, and the
-// registering volunteer is stamped in RegisteredBy. The pass is REGISTERED (attended) on the spot.
+// Appends a gate walk-in as a REGISTERED pass row into the active scan sheet (App_Source), so it
+// shows up in Reports/dashboard/lookup alongside pre-sold passes. Recorded only after payment: no
+// payment-type field — the payment mode/reference lives in Comments, RegisteredBy = the volunteer.
+// NOTE: App_Source must stay frozen after its initial export, else a re-export would drop these rows.
 app.post("/api/walkin", requireAuth(), async (req, res) => {
   const name = clean(req.body?.name);
   const mobile = clean(req.body?.mobile);
@@ -943,23 +940,21 @@ app.post("/api/walkin", requireAuth(), async (req, res) => {
   const first = parts.shift() || name, last = parts.join(" ");
   let token, base, session;
   try {
+    const cfg = await getConfig();
+    const sheet = String(cfg.scanSheet || "").trim();
+    if (!sheet) return res.status(400).json({ error: "No scan sheet configured — set the event session in Settings first." });
     const { loc } = await wbContext();
     token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
-    const table = await ensureLogTable(token, base, session, WALKIN_SHEET, WALKIN_HEADERS, WALKIN_TABLE);
-    const headers = await tableHeaders(token, base, session, table);
-    // Next W-id from whatever ids already exist on the sheet.
-    let ids = [];
-    try {
-      const rr = await readUsedRangeRaw(token, base, session, WALKIN_SHEET);
-      const hr = rr.values.findIndex((r) => r.some((c) => /registrationid|order/i.test(String(c ?? ""))));
-      const idIdx = hr === -1 ? 0 : (rr.values[hr] || []).findIndex((c) => /registrationid|order/i.test(String(c ?? "")));
-      ids = rr.values.slice((hr === -1 ? 0 : hr) + 1).map((r) => r[idIdx]);
-    } catch { /* optional */ }
-    const wid = nextWalkinId(ids);
+    const table = await tableForSheet(token, base, session, sheet);
+    const { headers, rows } = await readTable(token, base, session, table);
+    // Next W-id from the RegistrationID column so walk-ins never collide with numeric source orders.
+    const idIdx = headers.findIndex((h) => /^(registrationid|order\s*number|order|id)$/i.test(String(h ?? "").trim()));
+    const wid = nextWalkinId(idIdx === -1 ? [] : rows.map((r) => r.values[idIdx]));
     const iso = nowInZone(TZ).iso;
     const val = (h) => {
       const l = lc(h);
       if (l === "registrationid" || l === "order number" || l === "ordernumber" || l === "order" || l === "id") return wid;
+      if (l === "uniquekey" || l === "unique key" || l === "appkey") return wid + meal;
       if (l === "first name" || l === "firstname") return first;
       if (l === "last name" || l === "lastname") return last;
       if (l === "name") return name;
@@ -976,7 +971,9 @@ app.post("/api/walkin", requireAuth(), async (req, res) => {
       return "";
     };
     await addTableRows(token, base, session, table, [headers.map(val)]);
-    res.json({ ok: true, id: wid, name, quantity: qty });
+    summaryCache = { key: "", at: 0, data: null };   // reflect the new row on the dashboard
+    sheetCache = { key: "", at: 0, data: null };      // and in Reports
+    res.json({ ok: true, id: wid, name, quantity: qty, sheet });
   } catch (e) {
     console.error("walkin failed:", e?.message || e);
     res.status(500).json({ error: "Could not register the walk-in.", detail: e?.message || String(e) });
