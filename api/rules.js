@@ -20,6 +20,8 @@ const COLS = {
   foodOption: ["FoodOption", "Food Option"],
   status: ["Status"],
   dateTime: ["DateTime", "Date Time"],
+  comments: ["Comments", "Comment", "Remarks", "Notes"],
+  registeredBy: ["RegisteredBy", "Registered By", "RecordedBy", "Recorded By"],
 };
 
 function findCol(headers, candidates) {
@@ -111,7 +113,7 @@ const norm = (v) => String(v ?? "").trim();
 // sheetScoped=true: the target worksheet IS the event session (e.g. "Saturday Dinner"),
 // so every row already belongs to it — match on the order number alone and skip the
 // date/time-of-day derivation the single-sheet flow used.
-export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", now = new Date(), sheetScoped = false, cutoff = 1600, eventDate = null }) {
+export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", now = new Date(), sheetScoped = false, cutoff = 1600, eventDate = null, registeredBy = "", comments = "" }) {
   const col = mapColumns(headers);
   const clock = nowInZone(tz, now);
   const session = sessionFor(clock.hhmm, cutoff);
@@ -168,8 +170,12 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
     values: r.values,
     statusCol: col.status,
     dateTimeCol: col.dateTime,
+    registeredByCol: col.registeredBy,
+    commentsCol: col.comments,
     newStatus: "REGISTERED",
     newDateTime: clock.iso,
+    newRegisteredBy: registeredBy,
+    newComments: comments,
   }));
 
   return {

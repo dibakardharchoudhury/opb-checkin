@@ -163,6 +163,8 @@ export async function patchRow(token, base, session, tableName, item) {
   const values = item.values.slice();
   values[item.statusCol] = item.newStatus;
   values[item.dateTimeCol] = item.newDateTime;
+  if (item.registeredByCol != null && item.registeredByCol !== -1 && item.newRegisteredBy !== undefined) values[item.registeredByCol] = item.newRegisteredBy;
+  if (item.commentsCol != null && item.commentsCol !== -1 && item.newComments !== undefined) values[item.commentsCol] = item.newComments;
   await gfetch(`${base}/tables/${encodeURIComponent(tableName)}/rows/itemAt(index=${item.index})`, {
     token, session, method: "PATCH", body: { values: [values] },
   });

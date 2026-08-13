@@ -256,7 +256,7 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
     const table = await tableForSheet(token, base, session, sheet);
     const { headers, rows } = await readTable(token, base, session, table);
     const { cutoff, eventDate } = await validationSettings();
-    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: SHEET_SCOPED });
+    const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: SHEET_SCOPED, registeredBy: req.user.email, comments: "ScannedByApp" });
 
     let passesRegistered = result.orderRegistered || 0;
     if (result.decision === "SUCCESS") {

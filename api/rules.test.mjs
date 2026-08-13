@@ -37,6 +37,17 @@ test("SUCCESS: valid lunch pass today gets registered", () => {
   assert.equal(r.patch[0].newStatus, "REGISTERED");
 });
 
+test("check-in writes RegisteredBy + Comments when those columns exist", () => {
+  const h = ["RegistrationID", "First Name", "Last Name", "Date", "PassType", "FoodOption", "Quantity", "Status", "Comments", "RegisteredBy", "DateTime"];
+  const rows = [{ index: 5, values: [3000, "A", "B", serial, "Lunch", "Yes", 1, "", "", "", ""] }];
+  const r = evaluateScan({ headers: h, rows, orderNumber: "3000", now: noonOslo, registeredBy: "vol@opb", comments: "ScannedByApp" });
+  assert.equal(r.decision, "SUCCESS");
+  const p = r.patch[0];
+  assert.equal(p.newRegisteredBy, "vol@opb");
+  assert.equal(p.newComments, "ScannedByApp");
+  assert.ok(p.registeredByCol !== -1 && p.commentsCol !== -1);
+});
+
 test("ALREADY: pass already REGISTERED", () => {
   const rows = [{ ...rowA(3000, serial, "Lunch", "Yes", "REGISTERED"), index: 5 }];
   const r = evaluateScan({ headers: headersA, rows, orderNumber: "3000", now: noonOslo });
