@@ -16,7 +16,7 @@ import {
   getAccessToken, workbookBase, openSession, closeSession, readTable, patchRow,
   listWorksheets, firstTableName, readWorksheetUsedRange, listWorkbooks,
   addTableRows, tableHeaders, ensureLogTable,
-  readUsedRangeRaw, writeRange, deleteTable, createTable, colLetter, ensureTableColumns,
+  readUsedRangeRaw, writeRange, deleteTable, createTable, colLetter, ensureTableColumns, getTableStyle,
 } from "./graph.js";
 import { evaluateScan, nowInZone, normalizeCutoff, normalizeEventDate, passDateYMD } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
@@ -202,6 +202,19 @@ async function tableForSheet(token, base, session, sheet) {
   const t = await firstTableName(token, base, session, sheet);
   if (!t) throw new Error(`Worksheet "${sheet}" has no table to check in against.`);
   return t;
+}
+
+// A lazy provider of the active event sheet's table style, so newly created app sheets match it.
+// Invoked by ensureLogTable only when it actually creates a new table (cheap: no cost otherwise).
+function eventSheetStyleThunk(token, base, session) {
+  return async () => {
+    try {
+      const scan = String((await getConfig()).scanSheet || "").trim();
+      if (!scan) return null;
+      const t = await firstTableName(token, base, session, scan);
+      return t ? await getTableStyle(token, base, session, t) : null;
+    } catch { return null; }
+  };
 }
 
 // GET /api/tabs -> { tabs: [names] }  — the workbook's worksheets, for the UI pickers.
@@ -842,7 +855,7 @@ app.post("/api/food-entry", requireAuth(), async (req, res) => {
 
     // --- Audit: append line items to FoodStallLog ---
     try {
-      const table = await ensureLogTable(token, base, session, FOOD_LOG_SHEET, FOOD_LOG_HEADERS, FOOD_LOG_TABLE);
+      const table = await ensureLogTable(token, base, session, FOOD_LOG_SHEET, FOOD_LOG_HEADERS, FOOD_LOG_TABLE, eventSheetStyleThunk(token, base, session));
       const headers = await tableHeaders(token, base, session, table);
       const iso = nowInZone(TZ).iso; const by = req.user.email;
       const logRows = items.map((i) => rowForHeaders(headers, [
@@ -921,7 +934,7 @@ app.post("/api/food-settle", requireAuth(), async (req, res) => {
     await writeRange(token, base, session, FOOD_DUES_SHEET, `${startL}${rowNo}:${endL}${rowNo}`, [upd.rowValues]);
     // Append an audit line to FoodSettlements.
     try {
-      const table = await ensureLogTable(token, base, session, FOOD_SETTLE_SHEET, FOOD_SETTLE_HEADERS, FOOD_SETTLE_TABLE);
+      const table = await ensureLogTable(token, base, session, FOOD_SETTLE_SHEET, FOOD_SETTLE_HEADERS, FOOD_SETTLE_TABLE, eventSheetStyleThunk(token, base, session));
       const headers = await tableHeaders(token, base, session, table);
       const logRow = rowForHeaders(headers, [
         [["datetime", "date time", "time"], nowInZone(TZ).iso], [["name"], name],
@@ -957,7 +970,7 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
   try {
     const { loc } = await wbContext();
     token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
-    const table = await ensureLogTable(token, base, session, PARKING_SHEET, PARKING_HEADERS, PARKING_TABLE);
+    const table = await ensureLogTable(token, base, session, PARKING_SHEET, PARKING_HEADERS, PARKING_TABLE, eventSheetStyleThunk(token, base, session));
     const headers = await tableHeaders(token, base, session, table);
     // Next Sl No = one past the highest already on the sheet (works whether rows live
     // inside or outside the table).
@@ -1013,7 +1026,7 @@ app.post("/api/walkin", requireAuth(), async (req, res) => {
     const { loc } = await wbContext();
     token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
     const existed = (await listWorksheets(token, base, session)).some((n) => n.toLowerCase() === WALKIN_SHEET.toLowerCase());
-    const table = await ensureLogTable(token, base, session, WALKIN_SHEET, WALKIN_HEADERS, WALKIN_TABLE);
+    const table = await ensureLogTable(token, base, session, WALKIN_SHEET, WALKIN_HEADERS, WALKIN_TABLE, eventSheetStyleThunk(token, base, session));
     const headers = await tableHeaders(token, base, session, table);
     // Next W-id from whatever ids already exist on the sheet.
     let ids = [];

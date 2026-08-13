@@ -245,7 +245,7 @@ export async function createTable(token, base, session, worksheet, address, tabl
 // If the worksheet already carries a table, that one is reused as-is (its own column order
 // is respected by the caller). Otherwise the worksheet (if missing) and a header-defined
 // table are created. Non-destructive: never touches existing data.
-export async function ensureLogTable(token, base, session, worksheet, headers, tableName) {
+export async function ensureLogTable(token, base, session, worksheet, headers, tableName, getStyle) {
   const names = await listWorksheets(token, base, session);
   if (!names.some((n) => n.toLowerCase() === worksheet.toLowerCase())) {
     await gfetch(`${base}/worksheets/add`, { token, session, method: "POST", body: { name: worksheet } });
@@ -259,10 +259,21 @@ export async function ensureLogTable(token, base, session, worksheet, headers, t
   const t = await gfetch(`${base}/tables/add`, {
     token, session, method: "POST", body: { address: `'${worksheet}'!${addr}`, hasHeaders: true },
   });
+  // Match the active event sheet's look, so new app sheets aren't the default blue table.
+  if (t && t.id && typeof getStyle === "function") {
+    try { const style = await getStyle(); if (style) await gfetch(`${base}/tables/${t.id}`, { token, session, method: "PATCH", body: { style } }); }
+    catch { /* styling is best-effort */ }
+  }
   if (tableName && t && t.id) {
     try { await gfetch(`${base}/tables/${t.id}`, { token, session, method: "PATCH", body: { name: tableName } }); return tableName; } catch { /* name taken */ }
   }
   return t.name;
+}
+
+// The table's built-in style name (e.g. "TableStyleMedium2"), or null.
+export async function getTableStyle(token, base, session, tableName) {
+  try { const t = await gfetch(`${base}/tables/${encodeURIComponent(tableName)}?$select=style`, { token, session }); return (t && t.style) || null; }
+  catch { return null; }
 }
 
 export { workbookBase, colLetter };
