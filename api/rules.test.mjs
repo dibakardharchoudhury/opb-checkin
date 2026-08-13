@@ -60,7 +60,7 @@ test("INVALID: dinner pass scanned at lunchtime", () => {
   const r = evaluateScan({ headers: headersA, rows, orderNumber: "3000", now: noonOslo });
   assert.equal(r.decision, "INVALID");
   assert.equal(r.reason, "wrong_session");   // order exists, but no Lunch pass now
-  assert.equal(r.orderTotal, 1);
+  assert.equal(r.orderTotal, 3);             // one row, Quantity 3
   assert.equal(r.orderRegistered, 0);
 });
 
@@ -72,15 +72,23 @@ test("INVALID: unknown order", () => {
   assert.equal(r.orderTotal, 0);
 });
 
-test("counts: orderTotal + orderRegistered reflect the order's rows", () => {
+test("counts: orderTotal + orderRegistered sum the Quantity column, not rows", () => {
   const rows = [
     rowA(3000, serial, "Lunch", "Yes", "REGISTERED"),
     rowA(3000, serial, "Dinner", "Yes"),
   ];
   const r = evaluateScan({ headers: headersA, rows, orderNumber: "3000", now: noonOslo });
-  assert.equal(r.orderTotal, 2);
-  assert.equal(r.orderRegistered, 1);        // the Lunch row is already registered
+  assert.equal(r.orderTotal, 6);              // two rows x Quantity 3
+  assert.equal(r.orderRegistered, 3);         // the Lunch row (Qty 3) is already registered
   assert.equal(r.decision, "ALREADY");        // scanning Lunch again -> already
+});
+
+test("passes: patchQuantity sums Quantity of the rows just registered", () => {
+  const rows = [{ ...rowA(3000, serial, "Lunch", "Yes"), index: 5 }];
+  const r = evaluateScan({ headers: headersA, rows, orderNumber: "3000", now: noonOslo });
+  assert.equal(r.decision, "SUCCESS");
+  assert.equal(r.patchQuantity, 3);           // one Lunch row, Quantity 3
+  assert.equal(r.orderTotal, 3);
 });
 
 test("SUCCESS: multiple rows (veg + non-veg) both updated", () => {

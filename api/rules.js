@@ -22,6 +22,7 @@ const COLS = {
   dateTime: ["DateTime", "Date Time"],
   comments: ["Comments", "Comment", "Remarks", "Notes"],
   registeredBy: ["RegisteredBy", "Registered By", "RecordedBy", "Recorded By"],
+  quantity: ["Quantity", "Qty", "Passes", "Count"],
 };
 
 function findCol(headers, candidates) {
@@ -151,9 +152,14 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
     valid = candidates; // last resort only when a sheet lacks Date/PassType columns
   }
 
-  const orderRegistered = candidates.filter((r) => norm(get(r.values, col.status)).toUpperCase() === "REGISTERED").length;
-  const meta = { customerName, col, session, orderTotal: candidates.length, orderRegistered };
-
+  // "Passes" counts people, not rows: sum the Quantity column (blank/invalid -> 1 per row).
+  const qtyOf = (r) => { const q = parseInt(norm(get(r.values, col.quantity)), 10); return Number.isFinite(q) && q > 0 ? q : 1; };
+  const orderTotal = candidates.reduce((s, r) => s + qtyOf(r), 0);
+  const orderRegistered = candidates
+    .filter((r) => norm(get(r.values, col.status)).toUpperCase() === "REGISTERED")
+    .reduce((s, r) => s + qtyOf(r), 0);
+  const patchQuantity = valid.reduce((s, r) => s + qtyOf(r), 0);
+  const meta = { customerName, col, session, orderTotal, orderRegistered, patchQuantity };
   if (candidates.length === 0)
     return { decision: "INVALID", reason: "not_found", response: "ERROR!!! This pass/order was not found.", patch: [], ...meta };
 

@@ -261,7 +261,7 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
     let passesRegistered = result.orderRegistered || 0;
     if (result.decision === "SUCCESS") {
       for (const item of result.patch) await patchRow(token, base, session, table, item);
-      passesRegistered += result.patch.length; // rows just flipped to REGISTERED
+      passesRegistered += result.patchQuantity || result.patch.length; // passes just flipped to REGISTERED
     }
     res.json({
       response: result.response, customername: result.customerName, decision: result.decision,
