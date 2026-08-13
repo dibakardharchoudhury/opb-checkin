@@ -183,6 +183,30 @@ export async function tableHeaders(token, base, session, tableName) {
   return (h.values && h.values[0]) || [];
 }
 
+// Append a new column to a table. Returns the created column.
+export async function addTableColumn(token, base, session, tableName, name) {
+  return gfetch(`${base}/tables/${encodeURIComponent(tableName)}/columns`, {
+    token, session, method: "POST", body: { name },
+  });
+}
+
+// Ensure a table has each required column; add any missing. Each entry is either a plain name
+// or { name, aliases } — a column is considered present if ANY alias exists (case-insensitive),
+// so an existing "Date Time" won't trigger a duplicate "DateTime". Returns the names added.
+export async function ensureTableColumns(token, base, session, tableName, cols) {
+  const have = (await tableHeaders(token, base, session, tableName)).map((h) => String(h ?? "").trim().toLowerCase());
+  const added = [];
+  for (const col of cols) {
+    const name = typeof col === "string" ? col : col.name;
+    const aliases = (typeof col === "string" ? [col] : (col.aliases && col.aliases.length ? col.aliases : [name]));
+    if (!aliases.some((a) => have.includes(String(a).toLowerCase()))) {
+      try { await addTableColumn(token, base, session, tableName, name); added.push(name); have.push(name.toLowerCase()); }
+      catch { /* concurrent add / name already taken — ignore */ }
+    }
+  }
+  return added;
+}
+
 // 1->A, 26->Z, 27->AA … for building an A1 range from a column count.
 function colLetter(n) {
   let s = ""; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }

@@ -226,6 +226,8 @@
   .duesrow.duesout b { font-family:"Cormorant Garamond",serif; font-size:22px; color:var(--maroon); }
   .duesitems { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
   .duestag { font-size:12px; padding:3px 9px; border-radius:999px; background:var(--maroon); color:#fff; opacity:.9; }
+  .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:#2b2b2b; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:9999; max-width:90vw; text-align:center; }
+  .toast.show { opacity:.96; transform:translateX(-50%) translateY(0); }
   .dashcap-note { font-weight:600; letter-spacing:0; text-transform:none; color:var(--muted); font-size:11.5px; }
   .dashmore-wrap { text-align:center; margin-top:12px; }
   .dashmore-wrap .ghost.hidden { display:none; }
@@ -756,8 +758,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.61"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T14:01:57Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.62"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T14:26:26Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -765,6 +767,12 @@ const banner = $("banner"), sub = $("sub"), video = $("video");
 let stream = null, scanning = false, lastValue = "", lastAt = 0, zxingReader = null;
 
 function setBanner(text, cls) { banner.className = "banner" + (cls ? " " + cls : ""); banner.textContent = text; }
+function toast(msg) {
+  let t = $("toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 5000);
+}
 function beep(ok) {
   try {
     const ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -804,6 +812,7 @@ async function submitOrder(raw) {
     showResult(kind, title, subtxt, true, sheet);
     if (d === "SUCCESS") { beep(true); sheetsStale = true; }
     else { beep(false); }
+    if (Array.isArray(j.addedColumns) && j.addedColumns.length) toast("Added missing column(s) to the sheet: " + j.addedColumns.join(", "));
   } catch (e) {
     showResult("err", "Network error", "Please try again.");
     beep(false);

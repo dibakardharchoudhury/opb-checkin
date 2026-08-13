@@ -16,7 +16,7 @@ import {
   getAccessToken, workbookBase, openSession, closeSession, readTable, patchRow,
   listWorksheets, firstTableName, readWorksheetUsedRange, listWorkbooks,
   addTableRows, tableHeaders, ensureLogTable,
-  readUsedRangeRaw, writeRange, deleteTable, createTable, colLetter,
+  readUsedRangeRaw, writeRange, deleteTable, createTable, colLetter, ensureTableColumns,
 } from "./graph.js";
 import { evaluateScan, nowInZone, normalizeCutoff, normalizeEventDate, passDateYMD } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
@@ -187,6 +187,14 @@ app.post("/api/users/remove", requireAuth("admin"), async (req, res) => {
   catch (e) { res.status(500).json({ error: "Could not remove the user." }); }
 });
 
+// Columns the app writes on check-in; each is created (canonical name) if no alias exists.
+const CHECKIN_COLS = [
+  { name: "Status", aliases: ["Status"] },
+  { name: "DateTime", aliases: ["DateTime", "Date Time"] },
+  { name: "RegisteredBy", aliases: ["RegisteredBy", "Registered By", "RecordedBy", "Recorded By"] },
+  { name: "Comments", aliases: ["Comments", "Comment", "Remarks", "Notes"] },
+];
+
 // Resolve the Excel table that backs a worksheet (event) tab. Falls back to the
 // configured TABLE_NAME for the legacy single-sheet workbook when no tab is given.
 async function tableForSheet(token, base, session, sheet) {
@@ -256,6 +264,8 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
     const { cutoff, eventDate } = await validationSettings();
     let useTable = await tableForSheet(token, base, session, sheet);
     let useSheet = sheet;
+    // Make sure the sheet has the columns we write on check-in; create any that are missing.
+    const addedColumns = await ensureTableColumns(token, base, session, useTable, CHECKIN_COLS);
     let read = await readTable(token, base, session, useTable);
     let result = evaluateScan({ headers: read.headers, rows: read.rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: SHEET_SCOPED, registeredBy: req.user.email, comments: "ScannedByApp" });
 
@@ -264,6 +274,7 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
       try {
         const wt = await firstTableName(token, base, session, WALKIN_SHEET);
         if (wt) {
+          await ensureTableColumns(token, base, session, wt, CHECKIN_COLS);
           const wd = await readTable(token, base, session, wt);
           const wr = evaluateScan({ headers: wd.headers, rows: wd.rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: true, registeredBy: req.user.email, comments: "ScannedByApp" });
           if (!(wr.decision === "INVALID" && wr.reason === "not_found")) { result = wr; useTable = wt; useSheet = WALKIN_SHEET; }
@@ -277,10 +288,11 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
       passesRegistered += result.patchQuantity || result.patch.length; // passes just flipped to REGISTERED
       if (useSheet === WALKIN_SHEET) { summaryCache = { key: "", at: 0, data: null }; sheetCache = { key: "", at: 0, data: null }; }
     }
+    if (addedColumns.length) { summaryCache = { key: "", at: 0, data: null }; sheetCache = { key: "", at: 0, data: null }; }
     res.json({
       response: result.response, customername: result.customerName, decision: result.decision,
       sheet: useSheet || useTable, reason: result.reason || null, session: result.session,
-      passesRegistered, passesTotal: result.orderTotal || 0,
+      passesRegistered, passesTotal: result.orderTotal || 0, addedColumns,
     });
   } catch (e) {
     console.error("register failed:", e?.message || e);
