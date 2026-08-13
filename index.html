@@ -701,8 +701,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.51"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T11:06:38Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.52"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T11:17:15Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -740,8 +740,13 @@ async function submitOrder(raw) {
     const d = j.decision;
     const kind = d === "SUCCESS" ? "ok" : d === "ALREADY" ? "warn" : "err";
     const who = j.customername && j.customername !== "Unknown" ? j.customername : "";
-    const title = d === "SUCCESS" ? "Checked in" : d === "ALREADY" ? "Already checked in" : "Not a valid pass";
-    showResult(kind, title, "#" + orderNumber + (who ? "  \u00b7  " + who : ""), true, sheet);
+    const passInfo = j.passesTotal ? "  \u00b7  " + (j.passesRegistered || 0) + " of " + j.passesTotal + " passes registered" : "";
+    let title, subtxt;
+    if (d === "SUCCESS") { title = "Checked in"; subtxt = "#" + orderNumber + (who ? "  \u00b7  " + who : "") + passInfo; }
+    else if (d === "ALREADY") { title = "Already checked in"; subtxt = "#" + orderNumber + (who ? "  \u00b7  " + who : "") + passInfo; }
+    else if (j.reason === "wrong_session") { title = "Not a valid pass at this time"; subtxt = "#" + orderNumber + (who ? "  \u00b7  " + who : "") + "  \u00b7  no " + (j.session || "") + " pass for today" + (j.passesTotal ? " (" + j.passesTotal + " on file)" : ""); }
+    else { title = "Not a valid pass"; subtxt = "#" + orderNumber + "  \u00b7  order not found"; }
+    showResult(kind, title, subtxt, true, sheet);
     if (d === "SUCCESS") { beep(true); sheetsStale = true; }
     else { beep(false); }
   } catch (e) {
@@ -843,11 +848,12 @@ async function doManualRegister() {
     $("lookupList").innerHTML = m.map((x) => {
       const tags = [];
       if (x.pass) tags.push('<span class="lk-tag lk-pass">' + esc(x.pass) + (x.tier ? " \u00b7 " + esc(x.tier) : "") + "</span>");
-      (x.foods || []).forEach((f) => tags.push('<span class="lk-tag lk-food">' + esc(f) + "</span>"));
+      (x.foods || []).forEach((f) => tags.push('<span class="lk-tag lk-food">Food: ' + esc(f) + "</span>"));
       if (x.dates && x.dates.length) tags.push('<span class="lk-tag lk-date">' + esc(lookupDates(x.dates)) + "</span>");
       (x.meals || []).forEach((mm) => tags.push('<span class="lk-tag ' + mealTagClass(mm) + '">' + esc(mm) + "</span>"));
       const sub = tags.length ? '<span class="lk-tags">' + tags.join("") + "</span>" : "";
-      return '<button class="lookup-item" data-order="' + esc(x.order) + '"><b>' + esc(x.name || "(no name)") + '</b><span class="lk-order">#' + esc(x.order) + "</span>" + sub + "</button>";
+      const cnt = x.count ? " \u00b7 " + x.count + " pass" + (x.count === 1 ? "" : "es") : "";
+      return '<button class="lookup-item" data-order="' + esc(x.order) + '"><b>' + esc(x.name || "(no name)") + '</b><span class="lk-order">#' + esc(x.order) + cnt + "</span>" + sub + "</button>";
     }).join("");
   } catch { $("lookupList").innerHTML = '<div class="sheet-empty">Lookup failed \u2014 retry.</div>'; }
 }

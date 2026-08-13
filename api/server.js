@@ -258,10 +258,16 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
     const { cutoff, eventDate } = await validationSettings();
     const result = evaluateScan({ headers, rows, orderNumber, tz: TZ, cutoff, eventDate, sheetScoped: SHEET_SCOPED });
 
+    let passesRegistered = result.orderRegistered || 0;
     if (result.decision === "SUCCESS") {
       for (const item of result.patch) await patchRow(token, base, session, table, item);
+      passesRegistered += result.patch.length; // rows just flipped to REGISTERED
     }
-    res.json({ response: result.response, customername: result.customerName, decision: result.decision, sheet: sheet || table });
+    res.json({
+      response: result.response, customername: result.customerName, decision: result.decision,
+      sheet: sheet || table, reason: result.reason || null, session: result.session,
+      passesRegistered, passesTotal: result.orderTotal || 0,
+    });
   } catch (e) {
     console.error("register failed:", e?.message || e);
     res.status(500).json({ error: "Registration failed — please retry.", detail: e?.message || String(e) });
@@ -295,15 +301,16 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
       let m = byOrder.get(order);
       if (!m) {
         if (byOrder.size >= 25) continue;
-        m = { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "", tier: c.item !== -1 ? tierOf(v[c.item]) : "", dates: new Set(), meals: new Set(), foods: new Set() };
+        m = { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "", tier: c.item !== -1 ? tierOf(v[c.item]) : "", count: 0, dates: new Set(), meals: new Set(), foods: new Set() };
         byOrder.set(order, m);
       }
+      m.count++;
       if (c.date !== -1) { const d = passDateYMD(v[c.date]); if (d) m.dates.add(d); }
       if (c.meal !== -1) { const p = String(v[c.meal] ?? "").trim(); if (p) m.meals.add(p); }
       if (c.food !== -1) { const f = String(v[c.food] ?? "").trim(); if (f) m.foods.add(f); }
     }
     const matches = [...byOrder.values()].map((m) => ({
-      order: m.order, name: m.name, pass: m.pass, tier: m.tier,
+      order: m.order, name: m.name, pass: m.pass, tier: m.tier, count: m.count,
       dates: [...m.dates].sort(), meals: [...m.meals], foods: [...m.foods],
     }));
     res.json({ matches });

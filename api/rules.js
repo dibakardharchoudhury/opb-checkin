@@ -149,16 +149,19 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
     valid = candidates; // last resort only when a sheet lacks Date/PassType columns
   }
 
+  const orderRegistered = candidates.filter((r) => norm(get(r.values, col.status)).toUpperCase() === "REGISTERED").length;
+  const meta = { customerName, col, session, orderTotal: candidates.length, orderRegistered };
+
   if (candidates.length === 0)
-    return { decision: "INVALID", response: "ERROR!!! This Pass is NOT valid at this moment!", customerName, patch: [], col, session };
+    return { decision: "INVALID", reason: "not_found", response: "ERROR!!! This pass/order was not found.", patch: [], ...meta };
 
   if (valid.length === 0)
-    return { decision: "INVALID", response: "ERROR!!! This Pass is NOT valid at this moment!", customerName, patch: [], col, session };
+    return { decision: "INVALID", reason: "wrong_session", response: `ERROR!!! Not a valid pass at this time — no ${session} pass for the current day.`, patch: [], ...meta };
 
   // Flow checks the first matched row's status.
   const alreadyReg = norm(get(valid[0].values, col.status)).toUpperCase() === "REGISTERED";
   if (alreadyReg)
-    return { decision: "ALREADY", response: `ERROR!!!  ${customerName} is already registered!!!`, customerName, patch: [], col, session };
+    return { decision: "ALREADY", response: `ERROR!!!  ${customerName} is already registered!!!`, patch: [], ...meta };
 
   const patch = valid.map((r) => ({
     index: r.index,
@@ -172,9 +175,7 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
   return {
     decision: "SUCCESS",
     response: `SUCCESS!! ${customerName} has been registered successfully!`,
-    customerName,
     patch,
-    col,
-    session,
+    ...meta,
   };
 }

@@ -48,12 +48,28 @@ test("INVALID: dinner pass scanned at lunchtime", () => {
   const rows = [rowA(3000, serial, "Dinner", "Yes")];
   const r = evaluateScan({ headers: headersA, rows, orderNumber: "3000", now: noonOslo });
   assert.equal(r.decision, "INVALID");
+  assert.equal(r.reason, "wrong_session");   // order exists, but no Lunch pass now
+  assert.equal(r.orderTotal, 1);
+  assert.equal(r.orderRegistered, 0);
 });
 
 test("INVALID: unknown order", () => {
   const rows = [rowA(3000, serial, "Lunch", "Yes")];
   const r = evaluateScan({ headers: headersA, rows, orderNumber: "9999", now: noonOslo });
   assert.equal(r.decision, "INVALID");
+  assert.equal(r.reason, "not_found");
+  assert.equal(r.orderTotal, 0);
+});
+
+test("counts: orderTotal + orderRegistered reflect the order's rows", () => {
+  const rows = [
+    rowA(3000, serial, "Lunch", "Yes", "REGISTERED"),
+    rowA(3000, serial, "Dinner", "Yes"),
+  ];
+  const r = evaluateScan({ headers: headersA, rows, orderNumber: "3000", now: noonOslo });
+  assert.equal(r.orderTotal, 2);
+  assert.equal(r.orderRegistered, 1);        // the Lunch row is already registered
+  assert.equal(r.decision, "ALREADY");        // scanning Lunch again -> already
 });
 
 test("SUCCESS: multiple rows (veg + non-veg) both updated", () => {
@@ -109,7 +125,8 @@ test("flow: a pass only for Friday is INVALID when scanned on Saturday", () => {
   ];
   const r = evaluateScan({ headers: headersA, rows: friOnly, orderNumber: "5000", now: satLunch });
   assert.equal(r.decision, "INVALID");
-  assert.match(r.response, /NOT valid/i);
+  assert.equal(r.reason, "wrong_session");
+  assert.match(r.response, /not a valid pass at this time/i);
 });
 
 test("flow: veg + non-veg for the same date/meal both register, other meals untouched", () => {
