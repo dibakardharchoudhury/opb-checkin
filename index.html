@@ -561,7 +561,7 @@
       </div>
       <div class="dashcard"><div class="dashcap">Check-in flow <span id="flowNote" class="dashcap-note"></span></div><div class="chartbox chartbox-wide"><canvas id="chartFlow"></canvas></div></div>
       <div class="dashgrid">
-        <div class="dashcard"><div class="dashcap">Food stall &mdash; items sold <span id="foodNote" class="dashcap-note"></span></div><div class="chartbox"><canvas id="chartFood"></canvas></div></div>
+        <div class="dashcard"><div class="dashcap">Food stall &mdash; dues <span id="foodNote" class="dashcap-note"></span></div><div class="chartbox"><canvas id="chartFood"></canvas></div></div>
         <div class="dashcard"><div class="dashcap">Parking &mdash; cars by make <span id="parkNote" class="dashcap-note"></span></div><div class="chartbox"><canvas id="chartParking"></canvas></div></div>
       </div>
       <div class="dashcard"><div class="dashcap">Check-ins by event session <span id="sessNote" class="dashcap-note"></span></div><div id="dashSessions"></div></div>
@@ -729,8 +729,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.55"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T13:19:02Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.56"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T13:23:29Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1273,17 +1273,16 @@ function renderDateChart(byDate) {
       scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } } } } });
 }
 
-// Food stall: quantity sold per item (horizontal bars); note shows revenue + guests.
+// Food stall dues: consumed vs paid vs outstanding (bars); note shows outstanding + guests owing.
 function renderFoodChart(food) {
   const cv = $("chartFood"); if (!cv || !window.Chart) return;
-  const items = (food && food.items) || [];
   if (_chartFood) _chartFood.destroy();
-  if (!items.length) { $("foodNote").textContent = "\u00b7 no sales yet"; _chartFood = null; return; }
-  $("foodNote").textContent = "\u00b7 " + money(food.revenue || 0) + " \u00b7 " + (food.guests || 0) + " guests";
-  const top = items.slice(0, 12);
-  _chartFood = new Chart(cv, { type: "bar", data: { labels: top.map((i) => i.item), datasets: [{ label: "Qty sold", data: top.map((i) => i.qty), backgroundColor: top.map((_, i) => PALETTE[i % PALETTE.length]), borderRadius: 6, maxBarThickness: 34 }] },
-    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } }, y: { grid: { display: false }, ticks: { font: { size: 11 } } } } } });
+  const total = (food && food.total) || 0, paid = (food && food.paid) || 0, outstanding = (food && food.outstanding) || 0;
+  if (!total && !paid && !outstanding) { $("foodNote").textContent = "\u00b7 no dues yet"; _chartFood = null; return; }
+  $("foodNote").textContent = "\u00b7 " + money(outstanding) + " outstanding \u00b7 " + (food.owing || 0) + " of " + (food.guests || 0) + " owing";
+  _chartFood = new Chart(cv, { type: "bar", data: { labels: ["Consumed", "Paid", "Outstanding"], datasets: [{ label: "NOK", data: [total, paid, outstanding], backgroundColor: ["#6e1526", "#2e9c54", "#d9a441"], borderRadius: 6, maxBarThickness: 60 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => money(c.parsed.y) } } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: (v) => money(v) }, grid: { color: "rgba(0,0,0,.06)" } } } } });
 }
 
 // Parking: cars broken down by make (bar); note shows total cars.

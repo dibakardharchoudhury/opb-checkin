@@ -437,7 +437,7 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
           return { t, rows, c };
         } catch { return null; }
       }),
-      readFoodDuesSummary(token, base, session).catch(() => ({ items: [], revenue: 0, guests: 0 })),
+      readFoodDuesSummary(token, base, session).catch(() => ({ items: [], revenue: 0, guests: 0, total: 0, paid: 0, outstanding: 0, owing: 0 })),
       readParkingSummary(token, base, session).catch(() => ({ total: 0, byMake: [] })),
     ]);
     for (const rd of reads) {
@@ -663,26 +663,34 @@ export function normalizeParkingRow(r) {
   return [v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]];
 }
 
-// Dashboard aggregate: quantity sold per item + revenue from the Food Stall-Dues matrix.
+// Dashboard aggregate: food stall dues (consumed / paid / outstanding) from the Food Stall-Dues matrix.
 async function readFoodDuesSummary(token, base, session) {
   const raw = await readUsedRangeRaw(token, base, session, FOOD_DUES_SHEET);
   const values = raw.values || [];
   let hRow = values.findIndex((r) => r.some((c) => lc(c) === "name") && r.some((c) => lc(c) === "total"));
   if (hRow === -1) hRow = values.findIndex((r) => r.some((c) => lc(c) === "name"));
-  if (hRow === -1) return { items: [], revenue: 0, guests: 0 };
+  if (hRow === -1) return { items: [], revenue: 0, guests: 0, total: 0, paid: 0, outstanding: 0, owing: 0 };
   const headers = values[hRow].map((h) => String(h ?? ""));
   const isSl = (h) => /^(sl\.?\s*no\.?|serial|s\.?\s*no\.?|#)$/i.test(h.trim());
   const slCol = headers.findIndex(isSl), nameCol = headers.findIndex((h) => lc(h) === "name"), totalCol = headers.findIndex((h) => lc(h) === "total");
-  const itemCols = headers.map((h, i) => ({ h, i })).filter(({ h, i }) => i !== slCol && i !== nameCol && i !== totalCol && lc(h) !== "");
+  const paidCol = headers.findIndex((h) => lc(h) === "paid");
+  const outCol = headers.findIndex((h) => ["outstanding", "due", "dues", "balance"].includes(lc(h)));
+  const isMeta = (i) => i === slCol || i === nameCol || i === totalCol || i === paidCol || i === outCol;
+  const itemCols = headers.map((h, i) => ({ h, i })).filter(({ h, i }) => !isMeta(i) && lc(h) !== "");
   const items = itemCols.map(({ h }) => ({ item: h, qty: 0 }));
-  let revenue = 0, guests = 0;
+  let revenue = 0, guests = 0, paid = 0, outstanding = 0, owing = 0;
   for (const r of values.slice(hRow + 1)) {
     if (nameCol !== -1 && String(r[nameCol] ?? "").trim() === "") continue;
     guests++;
     itemCols.forEach(({ i }, k) => { const q = parseInt(r[i], 10); if (Number.isFinite(q)) items[k].qty += q; });
-    if (totalCol !== -1) revenue += parsePrice(r[totalCol]);
+    const t = totalCol !== -1 ? parsePrice(r[totalCol]) : 0;
+    const p = paidCol !== -1 ? parsePrice(r[paidCol]) : 0;
+    const o = outCol !== -1 ? parsePrice(r[outCol]) : Math.max(0, t - p);
+    revenue += t; paid += p; outstanding += o;
+    if (o > 0.005) owing++;
   }
-  return { items: items.filter((x) => x.qty > 0).sort((a, b) => b.qty - a.qty), revenue: Math.round(revenue * 100) / 100, guests };
+  const r2 = (n) => Math.round(n * 100) / 100;
+  return { items: items.filter((x) => x.qty > 0).sort((a, b) => b.qty - a.qty), revenue: r2(revenue), guests, total: r2(revenue), paid: r2(paid), outstanding: r2(outstanding), owing };
 }
 
 // Dashboard aggregate: car count and breakdown by make from the Parking sheet.
