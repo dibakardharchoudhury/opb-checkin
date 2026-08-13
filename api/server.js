@@ -350,6 +350,32 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
   }
 });
 
+// GET /api/passtypes -> distinct pass descriptions (the Item column of the scan sheet), so the
+// walk-in form offers the real pass types (e.g. "Day pass" vs "Full day pass") instead of guesses.
+let passTypesCache = { key: "", at: 0, data: null };
+app.get("/api/passtypes", requireAuth(), async (req, res) => {
+  let token, base, session;
+  try {
+    const cfg = await getConfig();
+    const sheet = String(cfg.scanSheet || "").trim();
+    const { loc } = await wbContext();
+    const key = (loc || "__env__") + "|" + sheet;
+    if (passTypesCache.data && passTypesCache.key === key && Date.now() - passTypesCache.at < 300_000) return res.json(passTypesCache.data);
+    token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    const table = await tableForSheet(token, base, session, sheet);
+    const { headers, rows } = await readTable(token, base, session, table);
+    const c = colFinder(headers);
+    const seen = new Map(); // lower-cased -> first-seen display form (de-dupes case variants)
+    if (c.item !== -1) for (const r of rows) { const it = String(r.values[c.item] ?? "").trim(); if (it && !seen.has(it.toLowerCase())) seen.set(it.toLowerCase(), it); }
+    const data = { passTypes: [...seen.values()].sort((a, b) => a.localeCompare(b)) };
+    passTypesCache = { key, at: Date.now(), data };
+    res.json(data);
+  } catch (e) {
+    console.error("passtypes failed:", e?.message || e);
+    res.status(500).json({ error: "Could not load pass types." });
+  } finally { if (token && base && session) await closeSession(token, base, session); }
+});
+
 // GET /api/sheet?tabs=A,B -> { sheets: [{ name, table, headers, rows, count }], updatedAt }
 // One entry per requested worksheet. With no ?tabs, reads the configured TABLE_NAME
 // (legacy single-sheet mode). Short-cached per tab-set so opening the list is cheap.
