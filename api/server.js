@@ -297,6 +297,7 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
     const todayYmd = nowInZone(TZ).ymd;
     const targetYmd = eventDates.has(todayYmd) ? todayYmd : (normalizeEventDate(eventDate) || todayYmd);
     const tierOf = (item) => { const s = String(item ?? ""); const m = s.match(/premium|standard/i); return m ? m[0][0].toUpperCase() + m[0].slice(1).toLowerCase() : ""; };
+    const titleCase = (s) => String(s).replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()); // collapse mixed-case values (Lunch/lunch)
     const byOrder = new Map();
     for (const r of rows) {
       const v = r.values;
@@ -312,8 +313,8 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
         byOrder.set(order, m);
       }
       m.count++;
-      if (c.meal !== -1) { const p = String(v[c.meal] ?? "").trim(); if (p) m.meals.add(p); }
-      if (c.food !== -1) { const f = String(v[c.food] ?? "").trim(); if (f) m.foods.add(f); }
+      if (c.meal !== -1) { const p = String(v[c.meal] ?? "").trim(); if (p) m.meals.add(titleCase(p)); }
+      if (c.food !== -1) { const f = String(v[c.food] ?? "").trim(); if (f) m.foods.add(titleCase(f)); }
     }
     const matches = [...byOrder.values()].map((m) => ({
       order: m.order, name: m.name, pass: m.pass, tier: m.tier, count: m.count,
