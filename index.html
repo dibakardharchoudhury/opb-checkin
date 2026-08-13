@@ -726,8 +726,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.57"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T13:26:50Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.58"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T13:28:37Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1240,7 +1240,8 @@ function renderFlowChart(recent) {
   const first = Math.floor(times[0] / BUCKET) * BUCKET, last = Math.floor(times[times.length - 1] / BUCKET) * BUCKET;
   const spanDays = new Set(times.map((t) => new Date(t).toDateString())).size > 1;
   const labels = [], data = []; let idx = 0, cum = 0;
-  for (let b = first; b <= last; b += BUCKET) {
+  // Start one bucket early at zero so a single arrival still draws a visible ramp.
+  for (let b = first - BUCKET; b <= last; b += BUCKET) {
     while (idx < times.length && times[idx] < b + BUCKET) { cum++; idx++; }
     const d = new Date(b), hh = String(d.getHours()).padStart(2, "0"), mi = String(d.getMinutes()).padStart(2, "0");
     labels.push((spanDays ? d.toLocaleDateString(undefined, { weekday: "short" }) + " " : "") + hh + ":" + mi);
@@ -1249,7 +1250,8 @@ function renderFlowChart(recent) {
   const ctx = cv.getContext("2d");
   const g = ctx.createLinearGradient(0, 0, 0, cv.height || 240);
   g.addColorStop(0, "rgba(110,21,38,.28)"); g.addColorStop(1, "rgba(110,21,38,.02)");
-  _chartFlow = new Chart(cv, { type: "line", data: { labels, datasets: [{ label: "Checked in", data, fill: true, backgroundColor: g, borderColor: "#6e1526", borderWidth: 2, tension: .35, pointRadius: 0, pointHoverRadius: 4 }] },
+  const dot = data.length <= 4 ? 3 : 0;
+  _chartFlow = new Chart(cv, { type: "line", data: { labels, datasets: [{ label: "Checked in", data, fill: true, backgroundColor: g, borderColor: "#6e1526", borderWidth: 2, tension: .35, pointRadius: dot, pointBackgroundColor: "#6e1526", pointHoverRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
       scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 8, autoSkip: true } } } } });
 }
