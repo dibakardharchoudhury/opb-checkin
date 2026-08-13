@@ -28,18 +28,19 @@ QR "3499;" → PWA (order 3499) → POST /api/register → backend
 3. Session = CET/Oslo local time strictly after the **cut-off → Dinner**, else **Lunch**.
    The cut-off is **16:00** (was 14:00 in the original flow) and is configurable via the
    `SESSION_CUTOFF` app setting (HHmm, e.g. `1600`). Exactly at the cut-off stays Lunch.
-4. Valid = candidates whose pass **Date == today (Oslo)** and **PassType == session** — so a
-   pass is honoured only for its own date and the current meal, never for all days/both meals.
-   - Discrete-column workbooks match on `Date`/`PassType`.
-   - Collapsed-key workbooks match `AppKey`/`UniqueKey` starting with `order+dateSerial+session`.
+4. Valid = candidates whose pass **Date == the event day (Oslo)** and **PassType == session** —
+   so a pass is honoured only for its own date and the current meal, never for all days/both meals.
+   Rows are identified by combining **RegistrationID + Date + PassType** (+ FoodOption, which
+   distinguishes multiple rows for the same order/date/meal). The legacy `UniqueKey`/`AppKey`
+   column is **not** used.
 5. No valid row → `ERROR!!! This Pass is NOT valid at this moment!`
 6. First valid row already `REGISTERED` → `ERROR!!! {name} is already registered!!!`
 7. Otherwise set `Status=REGISTERED`, `DateTime=now(Oslo)` on **all** valid rows →
    `SUCCESS!! {name} has been registered successfully!`
 
-Both workbook variants are supported automatically (see `rules.js` column detection):
-- **2025 style** (`App_Source` Table1): `RegistrationID, UniqueKey, First/Last, Item, Date, PassType, FoodOption, Quantity, Status, DateTime`.
-- **2026 style**: `Order Number, UniqueKey, First/Last, Quantity, AppKey, Status, DateTime`.
+The scan sheet uses discrete columns (see `rules.js` column detection):
+- `App_Source`: `RegistrationID, First/Last, Item, Date, PassType, FoodOption, Quantity, Status, DateTime`.
+  (A `UniqueKey` column, if still present, is ignored — matching never depends on it.)
 
 ## Sign-in (Google / Microsoft social login)
 

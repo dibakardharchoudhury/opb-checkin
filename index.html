@@ -693,8 +693,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.48"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T08:35:47Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.49"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T10:48:01Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -964,16 +964,7 @@ function fmtCell(v, type) {
   }
   return esc(String(v));
 }
-// Pull the pass date out of a key like "300045926LunchYes": strip the order prefix,
-// then read the leading digits as an Excel date serial. Returns "" when not present.
-function passDateFromKey(order, key) {
-  const o = String(order ?? "").trim(), k = String(key ?? "").trim();
-  const rest = k.startsWith(o) ? k.slice(o.length) : k;
-  const m = rest.match(/^(\d{4,6})/);
-  return m ? Number(m[1]) : "";
-}
-// Visible columns for the active sheet: its real headers (minus blank + internal keys),
-// plus a synthesized Date column for event tabs that encode it inside the key.
+// Visible columns for the active sheet: its real headers (minus blank + internal keys).
 function colsFor(sheet) {
   const cols = [];
   sheet.headers.forEach((h, i) => {
@@ -981,12 +972,6 @@ function colsFor(sheet) {
     if (name === "" || HIDDEN_COLS.includes(name.toLowerCase())) return;
     cols.push({ key: "c" + i, h: name, type: headerType(name), get: (r) => r[i] });
   });
-  const lower = sheet.headers.map((h) => String(h ?? "").trim().toLowerCase());
-  const keyIdx = idxOf(sheet.headers, ["uniquekey", "appkey"]);
-  const orderIdx = idxOf(sheet.headers, ORDER_COLS);
-  if (!lower.includes("date") && keyIdx !== -1 && orderIdx !== -1) {
-    cols.splice(1, 0, { key: "__date", h: "Date", type: "date", get: (r) => passDateFromKey(r[orderIdx], r[keyIdx]) });
-  }
   return cols;
 }
 
