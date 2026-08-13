@@ -147,6 +147,30 @@ test("configurable event date + cutoff override the current day", () => {
   assert.equal(r.patch.length, 1);
 });
 
+// Date precedence: real "today" wins when it's an event date; else the override; else today.
+const octSerial = excelSerial(new Date(2026, 9, 17));   // 2026-10-17
+const octNoon = new Date("2026-10-17T10:00:00Z");        // 12:00 Oslo -> Lunch (cutoff 1600)
+
+test("live event: today (an event date) wins over the eventDate override", () => {
+  const rows = [{ ...rowA(9100, octSerial, "Lunch", "Yes"), index: 60 }];
+  const r = evaluateScan({ headers: headersA, rows, orderNumber: "9100", now: octNoon, eventDate: "2025-09-26" });
+  assert.equal(r.decision, "SUCCESS");     // today matches an event date -> override ignored
+  assert.equal(r.patch[0].index, 60);
+});
+
+test("testing: today outside the event falls back to the eventDate override", () => {
+  const rows = [{ ...rowA(9200, octSerial, "Lunch", "Yes"), index: 61 }];
+  const r = evaluateScan({ headers: headersA, rows, orderNumber: "9200", now: new Date("2026-08-13T10:00:00Z"), eventDate: "2026-10-17" });
+  assert.equal(r.decision, "SUCCESS");
+  assert.equal(r.patch[0].index, 61);
+});
+
+test("no override + today outside the event -> INVALID", () => {
+  const rows = [{ ...rowA(9300, octSerial, "Lunch", "Yes"), index: 62 }];
+  const r = evaluateScan({ headers: headersA, rows, orderNumber: "9300", now: new Date("2026-08-13T10:00:00Z") });
+  assert.equal(r.decision, "INVALID");
+});
+
 test("parking and food stall sample rows format and price correctly", () => {
   const foodHeaders = ["DateTime", "Day", "Name", "Item", "Qty", "UnitPrice", "Amount", "RecordedBy"];
   const foodRow = rowForHeaders(foodHeaders, [

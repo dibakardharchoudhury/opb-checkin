@@ -4,8 +4,9 @@
 // A row to register is identified by combining RegistrationID + Date + PassType
 // (+ FoodOption, which distinguishes multiple rows for the same order/date/meal).
 // The scan supplies only the order/registration number (from the QR "<order>;"); the
-// Date is the configured event date (or today) and the meal (Lunch/Dinner) is derived
-// from the current Oslo time vs the cut-off. The legacy UniqueKey/AppKey column is NOT used.
+// Date defaults to the real "today" when it's one of the event's own dates, otherwise the
+// configured eventDate override (for testing). The meal (Lunch/Dinner) is derived from the
+// current Oslo time vs the cut-off. The legacy UniqueKey/AppKey column is NOT used.
 
 const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30); // 1899-12-30; Excel serial day 0
 
@@ -114,10 +115,16 @@ export function evaluateScan({ headers, rows, orderNumber, tz = "Europe/Oslo", n
   const col = mapColumns(headers);
   const clock = nowInZone(tz, now);
   const session = sessionFor(clock.hhmm, cutoff);
-  const targetDateYmd = normalizeEventDate(eventDate) || clock.ymd;
   const order = norm(orderNumber);
-
   const get = (values, idx) => (idx === -1 ? "" : values[idx]);
+
+  // Date to register for: prefer the real "today" when it is one of the event's own dates
+  // (live multi-day event → footfall lands on the correct day automatically). Only fall back
+  // to the configured eventDate override when today is outside the event (e.g. testing).
+  const eventDates = new Set(rows.map((r) => passDateYMD(get(r.values, col.date))).filter(Boolean));
+  const overrideYmd = normalizeEventDate(eventDate);
+  const targetDateYmd = eventDates.has(clock.ymd) ? clock.ymd : (overrideYmd || clock.ymd);
+
   const candidates = rows.filter((r) => norm(get(r.values, col.order)) === order);
 
   const nameOf = (r) => `${norm(get(r.values, col.first))} ${norm(get(r.values, col.last))}`.trim();
