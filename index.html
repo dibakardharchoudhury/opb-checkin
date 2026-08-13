@@ -196,6 +196,8 @@
   .lk-meal-lunch { color:#8a6a12; background:rgba(217,164,65,.16); border-color:rgba(217,164,65,.5); }
   .lk-meal-dinner { color:#7a1220; background:rgba(122,18,32,.07); border-color:rgba(122,18,32,.30); }
   .lk-meal { color:#20794a; background:rgba(46,156,84,.10); border-color:rgba(46,156,84,.35); }
+  .lk-reg { color:#fff; background:var(--ok,#2e9c54); border-color:var(--ok,#2e9c54); }
+  .lk-part { color:#8a6a12; background:rgba(217,164,65,.22); border-color:rgba(217,164,65,.6); }
   .foodmenu-cap { font-size:11.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--maroon); margin:6px 0 10px; }
   .foodmenu { display:flex; flex-direction:column; gap:8px; max-height:340px; overflow:auto; margin-bottom:12px; }
   .fooditem { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid rgba(217,164,65,.22); }
@@ -727,8 +729,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.54"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T12:35:15Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.55"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T13:19:02Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -877,6 +879,9 @@ async function doManualRegister() {
       (x.foods || []).forEach((f) => tags.push('<span class="lk-tag lk-food">Food: ' + esc(f) + "</span>"));
       if (x.date) tags.push('<span class="lk-tag lk-date">' + esc(lookupDShort(x.date)) + "</span>");
       (x.meals || []).forEach((mm) => tags.push('<span class="lk-tag ' + mealTagClass(mm) + '">' + esc(mm) + "</span>"));
+      const reg = x.registered || 0, tot = x.count || 0;
+      if (tot > 0 && reg >= tot) tags.push('<span class="lk-tag lk-reg">\u2713 Registered</span>');
+      else if (reg > 0) tags.push('<span class="lk-tag lk-part">' + reg + " of " + tot + " registered</span>");
       const sub = tags.length ? '<span class="lk-tags">' + tags.join("") + "</span>" : "";
       const cnt = x.count ? " \u00b7 " + x.count + " pass" + (x.count === 1 ? "" : "es") : "";
       return '<button class="lookup-item" data-order="' + esc(x.order) + '"><b>' + esc(x.name || "(no name)") + '</b><span class="lk-order">#' + esc(x.order) + cnt + "</span>" + sub + "</button>";

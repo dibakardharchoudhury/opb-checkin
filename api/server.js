@@ -309,15 +309,17 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
       let m = byOrder.get(order);
       if (!m) {
         if (byOrder.size >= 25) continue;
-        m = { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "", tier: c.item !== -1 ? tierOf(v[c.item]) : "", count: 0, meals: new Set(), foods: new Set() };
+        m = { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "", tier: c.item !== -1 ? tierOf(v[c.item]) : "", count: 0, registered: 0, meals: new Set(), foods: new Set() };
         byOrder.set(order, m);
       }
-      m.count += c.quantity !== -1 ? (parseInt(v[c.quantity], 10) || 1) : 1; // sum the Quantity column, not rows
+      const qty = c.quantity !== -1 ? (parseInt(v[c.quantity], 10) || 1) : 1;
+      m.count += qty; // sum the Quantity column, not rows
+      if (c.status !== -1 && String(v[c.status] ?? "").trim().toUpperCase() === "REGISTERED") m.registered += qty;
       if (c.meal !== -1) { const p = String(v[c.meal] ?? "").trim(); if (p) m.meals.add(titleCase(p)); }
       if (c.food !== -1) { const f = String(v[c.food] ?? "").trim(); if (f) m.foods.add(titleCase(f)); }
     }
     const matches = [...byOrder.values()].map((m) => ({
-      order: m.order, name: m.name, pass: m.pass, tier: m.tier, count: m.count,
+      order: m.order, name: m.name, pass: m.pass, tier: m.tier, count: m.count, registered: m.registered,
       date: targetYmd, meals: [...m.meals], foods: [...m.foods],
     }));
     res.json({ date: targetYmd, matches });
