@@ -284,17 +284,29 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
     const table = await tableForSheet(token, base, session, sheet);
     const { headers, rows } = await readTable(token, base, session, table);
     const c = colFinder(headers);
-    const seen = new Map();
+    const tierOf = (item) => { const s = String(item ?? ""); const m = s.match(/premium|standard/i); return m ? m[0][0].toUpperCase() + m[0].slice(1).toLowerCase() : ""; };
+    const byOrder = new Map();
     for (const r of rows) {
       const v = r.values;
       const order = String(v[c.order] ?? "").trim();
       if (!order) continue;
       const name = `${c.first !== -1 ? String(v[c.first] ?? "") : ""} ${c.last !== -1 ? String(v[c.last] ?? "") : ""}`.trim();
       if (!`${order} ${name}`.toLowerCase().includes(q)) continue;
-      if (!seen.has(order)) seen.set(order, { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "" });
-      if (seen.size >= 25) break;
+      let m = byOrder.get(order);
+      if (!m) {
+        if (byOrder.size >= 25) continue;
+        m = { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "", tier: c.item !== -1 ? tierOf(v[c.item]) : "", dates: new Set(), meals: new Set(), foods: new Set() };
+        byOrder.set(order, m);
+      }
+      if (c.date !== -1) { const d = passDateYMD(v[c.date]); if (d) m.dates.add(d); }
+      if (c.meal !== -1) { const p = String(v[c.meal] ?? "").trim(); if (p) m.meals.add(p); }
+      if (c.food !== -1) { const f = String(v[c.food] ?? "").trim(); if (f) m.foods.add(f); }
     }
-    res.json({ matches: [...seen.values()] });
+    const matches = [...byOrder.values()].map((m) => ({
+      order: m.order, name: m.name, pass: m.pass, tier: m.tier,
+      dates: [...m.dates].sort(), meals: [...m.meals], foods: [...m.foods],
+    }));
+    res.json({ matches });
   } catch (e) {
     console.error("lookup failed:", e?.message || e);
     res.status(500).json({ error: "Lookup failed — please retry." });
@@ -363,7 +375,7 @@ function colFinder(headers) {
     status: find(["status"]), dt: find(["datetime", "date time"]),
     first: find(["first name", "firstname"]), last: find(["last name", "lastname"]),
     item: find(["item", "pass type", "passtype"]),
-    date: find(["date"]), meal: find(["passtype", "pass type"]),
+    date: find(["date"]), meal: find(["passtype", "pass type"]), food: find(["foodoption", "food option"]),
   };
 }
 // Bucket a free-text item/pass into a tidy category for aggregation.
