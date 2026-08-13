@@ -312,7 +312,7 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
         m = { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "", tier: c.item !== -1 ? tierOf(v[c.item]) : "", count: 0, meals: new Set(), foods: new Set() };
         byOrder.set(order, m);
       }
-      m.count++;
+      m.count += c.quantity !== -1 ? (parseInt(v[c.quantity], 10) || 1) : 1; // sum the Quantity column, not rows
       if (c.meal !== -1) { const p = String(v[c.meal] ?? "").trim(); if (p) m.meals.add(titleCase(p)); }
       if (c.food !== -1) { const f = String(v[c.food] ?? "").trim(); if (f) m.foods.add(titleCase(f)); }
     }
@@ -390,6 +390,7 @@ function colFinder(headers) {
     first: find(["first name", "firstname"]), last: find(["last name", "lastname"]),
     item: find(["item", "pass type", "passtype"]),
     date: find(["date"]), meal: find(["passtype", "pass type"]), food: find(["foodoption", "food option"]),
+    quantity: find(["quantity", "qty"]),
   };
 }
 // Bucket a free-text item/pass into a tidy category for aggregation.
