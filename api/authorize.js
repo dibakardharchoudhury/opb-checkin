@@ -1,6 +1,6 @@
 // One-time consent helper — run locally to mint the delegated refresh token that the
 // backend uses to reach the personal-OneDrive workbook. You sign in ONCE as the
-// workbook owner (osloprobaseebangali@outlook.com); MFA/passkey is handled by
+// workbook owner account; MFA/passkey is handled by
 // Microsoft in the browser at that moment. Nothing here stores a password.
 //
 // The app registration is a PUBLIC client (no client secret). Just run:
@@ -77,7 +77,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(53682, () => {
-  console.log("Opening sign-in in your browser - sign in as the workbook OWNER (osloprobaseebangali@outlook.com).");
+  console.log("Opening sign-in in your browser - sign in as the workbook OWNER account.");
   console.log("If it doesn't open, paste this URL:\n" + authUrl + "\n");
   const cmd = process.platform === "win32" ? `start "" "${authUrl}"`
     : process.platform === "darwin" ? `open "${authUrl}"` : `xdg-open "${authUrl}"`;

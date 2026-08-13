@@ -11,7 +11,7 @@ records the check-in (`Status` + `DateTime`) in the OPB Excel Online workbook.
 | Front end | Self-contained PWA scanner, vanilla JS, no build, no secrets | `webapp/index.html` (+ `sw.js`, `manifest.webmanifest`, icons) — GitHub Pages |
 | Back end | Express proxy: business rules + Microsoft Graph writes | `webapp/api/` — Azure App Service (Free F1) in tenant `ad340c84…`, RG `rg-opb-checkin` |
 
-The workbook lives on a **personal OneDrive** (`osloprobaseebangali@outlook.com`), which
+The workbook lives on a **personal OneDrive** (the workbook owner account), which
 has **no service principals**. So the backend reaches it with a **delegated** Graph
 refresh token minted once by the owner (`authorize.js`). No password is ever stored;
 the only server-side secrets are the app's client secret and that refresh token.

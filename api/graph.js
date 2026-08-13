@@ -1,7 +1,7 @@
 // Microsoft Graph client for the OPB personal-OneDrive workbook.
 //
 // Consumer OneDrive has NO app-only / service-principal access, so we act DELEGATED
-// as the workbook owner (osloprobaseebangali@outlook.com). The one-time consent
+// as the workbook owner account. The one-time consent
 // (see authorize.js) yields a refresh token; here we exchange it for short-lived
 // access tokens and call the Excel workbook API. No user password is ever stored.
 //

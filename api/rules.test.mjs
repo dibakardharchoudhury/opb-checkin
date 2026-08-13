@@ -176,14 +176,14 @@ test("parking and food stall sample rows format and price correctly", () => {
   const foodRow = rowForHeaders(foodHeaders, [
     [["datetime", "date time", "time"], "2025-09-26T17:15:00.000"],
     [["day"], "Saturday"],
-    [["name"], "Dibakar Dharchoudhury"],
+    [["name"], "Test Guest One"],
     [["item", "dish", "food"], "Veg Thali"],
     [["qty", "quantity"], 2],
     [["unitprice", "unit price", "price", "rate"], 120],
     [["amount", "total"], 240],
     [["recordedby", "recorded by", "volunteer", "by"], "volunteer@opb.no"],
   ]);
-  assert.equal(foodRow[2], "Dibakar Dharchoudhury");
+  assert.equal(foodRow[2], "Test Guest One");
   assert.equal(foodRow[3], "Veg Thali");
   assert.equal(foodRow[4], 2);
   assert.equal(parsePrice("kr 120,50"), 120.5);
@@ -194,7 +194,7 @@ test("parking and food stall sample rows format and price correctly", () => {
   const parkingRow = rowForHeaders(parkingHeaders, [
     [["timestamp", "date", "time"], stamp],
     [["sl", "serial", "s.no", "sno", "#"], 1],
-    [["name"], "Dibakar Dharchoudhury"],
+    [["name"], "Test Guest One"],
     [["mobile", "phone", "contact"], "+47 400 00 000"],
     [["registration", "reg", "plate", "number plate", "car number"], "EL12345"],
     [["make"], "Volvo"],
@@ -235,17 +235,17 @@ const priceOf = (n) => PRICES[String(n).toLowerCase()] || 0;
 
 test("food dues: new guest fills first empty pre-numbered row and totals", () => {
   const rows = [
-    [1, "Dibakar Dharchoudhury", 1, "", "", 2, 2, 1, 3, 240],
-    [2, "Arijit Chatterjee", 1, 3, 2, "", 1, "", "", 190],
+    [1, "Test Guest One", 1, "", "", 2, 2, 1, 3, 240],
+    [2, "Test Guest Two", 1, 3, 2, "", 1, "", "", 190],
     [3, "", "", "", "", "", "", "", "", 0],
   ];
-  const u = applyFoodDues(DUES_HEADERS, rows, "Prasenjit", [
+  const u = applyFoodDues(DUES_HEADERS, rows, "Test Guest", [
     { item: "Veg Chop (1 stk)", qty: 1 }, { item: "Mochar Chop (1 stk)", qty: 1 },
     { item: "Cup Cake (1 stk)", qty: 1 }, { item: "Cold Drink (1 stk)", qty: 1 },
   ], priceOf);
   assert.equal(u.rowIndex, 2);                       // the empty "3" row
   assert.equal(u.rowValues[0], 3);                   // keeps its Sl No.
-  assert.equal(u.rowValues[1], "Prasenjit");
+  assert.equal(u.rowValues[1], "Test Guest");
   assert.equal(u.rowValues[2], 1);                   // Veg Chop
   assert.equal(u.rowValues[3], 1);                   // Mochar Chop
   assert.equal(u.rowValues[8], 1);                   // Cold Drink
@@ -256,8 +256,8 @@ test("food dues: new guest fills first empty pre-numbered row and totals", () =>
 });
 
 test("food dues: existing guest accumulates quantities and recomputes Total", () => {
-  const rows = [[1, "Dibakar Dharchoudhury", 1, "", "", 2, 2, 1, 3, 240]];
-  const u = applyFoodDues(DUES_HEADERS, rows, "dibakar dharchoudhury", [{ item: "Veg Chop (1 stk)", qty: 1 }], priceOf);
+  const rows = [[1, "Test Guest One", 1, "", "", 2, 2, 1, 3, 240]];
+  const u = applyFoodDues(DUES_HEADERS, rows, "test guest one", [{ item: "Veg Chop (1 stk)", qty: 1 }], priceOf);
   assert.equal(u.rowIndex, 0);
   assert.equal(u.rowValues[2], 2);                   // 1 + 1
   assert.equal(u.total, 265);                        // 2*25+2*30+2*25+1*30+3*25
@@ -265,11 +265,11 @@ test("food dues: existing guest accumulates quantities and recomputes Total", ()
 
 test("parking: normalize aligns app rows and leaves manual rows intact", () => {
   assert.deepEqual(
-    normalizeParkingRow([46282.9, 1, "Prasenjit", 123456, "EL1238789", "Toyota", "Corolla", "Black"]),
-    [1, 46282.9, "Prasenjit", 123456, "EL1238789", "Toyota", "Corolla", "Black"]);
+    normalizeParkingRow([46282.9, 1, "Test Guest", 123456, "AB12345", "Toyota", "Corolla", "Black"]),
+    [1, 46282.9, "Test Guest", 123456, "AB12345", "Toyota", "Corolla", "Black"]);
   assert.deepEqual(
-    normalizeParkingRow([1, "", "Arijit Chatterjee", 92563402, "EH60013", "Tesla", "Model X", "Blue"]),
-    [1, "", "Arijit Chatterjee", 92563402, "EH60013", "Tesla", "Model X", "Blue"]);
+    normalizeParkingRow([1, "", "Test Guest Two", 11111111, "AA11111", "Tesla", "Model X", "Blue"]),
+    [1, "", "Test Guest Two", 11111111, "AA11111", "Tesla", "Model X", "Blue"]);
 });
 
 test("security: deFormula neutralizes spreadsheet formula injection, keeps phones", () => {
@@ -277,5 +277,5 @@ test("security: deFormula neutralizes spreadsheet formula injection, keeps phone
   assert.equal(deFormula("@SUM(A1)"), "'@SUM(A1)");
   assert.equal(deFormula("-cmd|calc"), "'-cmd|calc");
   assert.equal(deFormula("+47 400 00 000"), "+47 400 00 000"); // phone: sign then digit stays
-  assert.equal(deFormula("Prasenjit"), "Prasenjit");           // ordinary text untouched
+  assert.equal(deFormula("Test Guest"), "Test Guest");           // ordinary text untouched
 });

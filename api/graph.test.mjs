@@ -6,14 +6,14 @@ test("shapeUsedRange skips a title banner and merged label column (Parking layou
   const grid = [
     ["", "PARKING LOG", "", "", "", "", "", ""],                                    // title banner row
     ["Friday: 26th September 2025", "Sl No.", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"], // real header row (col A = merged day label)
-    ["", "1", "Arijit Chatterjee", "92563402", "EH60013", "Tesla", "Model X", "Blue"],
-    ["", "2", "Dibakar Dharchoudhury", "40806330", "EE79686", "Tesla", "Model Y", "White"],
+    ["", "1", "Test Guest One", "11111111", "AA11111", "Tesla", "Model X", "Blue"],
+    ["", "2", "Test Guest Two", "22222222", "BB22222", "Tesla", "Model Y", "White"],
     ["", "17", "", "", "", "", "", ""],                                             // pre-numbered empty row
   ];
   const { headers, rows } = shapeUsedRange(grid);
   assert.deepEqual(headers, ["Sl No.", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"]);
   assert.equal(rows.length, 3); // header sliced off; the merged-day column dropped
-  assert.deepEqual(rows[0].values, ["1", "Arijit Chatterjee", "92563402", "EH60013", "Tesla", "Model X", "Blue"]);
+  assert.deepEqual(rows[0].values, ["1", "Test Guest One", "11111111", "AA11111", "Tesla", "Model X", "Blue"]);
 });
 
 test("shapeUsedRange keeps a normal first-row header sheet unchanged", () => {
