@@ -290,6 +290,12 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
     const table = await tableForSheet(token, base, session, sheet);
     const { headers, rows } = await readTable(token, base, session, table);
     const c = colFinder(headers);
+    // Scope to the day being registered: real "today" if it is an event date, else the
+    // configured eventDate override, else today (mirrors evaluateScan's date precedence).
+    const { eventDate } = await validationSettings();
+    const eventDates = new Set(rows.map((r) => (c.date !== -1 ? passDateYMD(r.values[c.date]) : null)).filter(Boolean));
+    const todayYmd = nowInZone(TZ).ymd;
+    const targetYmd = eventDates.has(todayYmd) ? todayYmd : (normalizeEventDate(eventDate) || todayYmd);
     const tierOf = (item) => { const s = String(item ?? ""); const m = s.match(/premium|standard/i); return m ? m[0][0].toUpperCase() + m[0].slice(1).toLowerCase() : ""; };
     const byOrder = new Map();
     for (const r of rows) {
@@ -298,22 +304,22 @@ app.get("/api/lookup", requireAuth(), scanLimiter, async (req, res) => {
       if (!order) continue;
       const name = `${c.first !== -1 ? String(v[c.first] ?? "") : ""} ${c.last !== -1 ? String(v[c.last] ?? "") : ""}`.trim();
       if (!`${order} ${name}`.toLowerCase().includes(q)) continue;
+      if (c.date !== -1 && passDateYMD(v[c.date]) !== targetYmd) continue; // only passes valid for the day
       let m = byOrder.get(order);
       if (!m) {
         if (byOrder.size >= 25) continue;
-        m = { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "", tier: c.item !== -1 ? tierOf(v[c.item]) : "", count: 0, dates: new Set(), meals: new Set(), foods: new Set() };
+        m = { order, name, pass: c.item !== -1 ? passCategory(v[c.item]) : "", tier: c.item !== -1 ? tierOf(v[c.item]) : "", count: 0, meals: new Set(), foods: new Set() };
         byOrder.set(order, m);
       }
       m.count++;
-      if (c.date !== -1) { const d = passDateYMD(v[c.date]); if (d) m.dates.add(d); }
       if (c.meal !== -1) { const p = String(v[c.meal] ?? "").trim(); if (p) m.meals.add(p); }
       if (c.food !== -1) { const f = String(v[c.food] ?? "").trim(); if (f) m.foods.add(f); }
     }
     const matches = [...byOrder.values()].map((m) => ({
       order: m.order, name: m.name, pass: m.pass, tier: m.tier, count: m.count,
-      dates: [...m.dates].sort(), meals: [...m.meals], foods: [...m.foods],
+      date: targetYmd, meals: [...m.meals], foods: [...m.foods],
     }));
-    res.json({ matches });
+    res.json({ date: targetYmd, matches });
   } catch (e) {
     console.error("lookup failed:", e?.message || e);
     res.status(500).json({ error: "Lookup failed — please retry." });
