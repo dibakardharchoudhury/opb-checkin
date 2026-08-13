@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateScan, excelSerial, sessionFor, passDateYMD, nowInZone } from "./rules.js";
-import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu, applyFoodDues, normalizeParkingRow, deFormula } from "./server.js";
+import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu, applyFoodDues, applyFoodPayment, normalizeParkingRow, deFormula } from "./server.js";
 
 // Variant A — discrete columns (Oslo Durgotsav 2025 App_Source shape).
 const headersA = ["RegistrationID", "UniqueKey", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Status", "DateTime"];
@@ -278,10 +278,51 @@ test("food dues: new guest fills first empty pre-numbered row and totals", () =>
   assert.equal(u.rowValues[3], 1);                   // Mochar Chop
   assert.equal(u.rowValues[8], 1);                   // Cold Drink
   assert.equal(u.headerChanged, true);               // Cup Cake column appended
-  assert.equal(u.headers[u.headers.length - 1], "Cup Cake (1 stk)");
-  assert.equal(u.rowValues[u.rowValues.length - 1], 1);
+  const cupCol = u.headers.findIndex((h) => h === "Cup Cake (1 stk)");
+  assert.ok(cupCol !== -1);
+  assert.equal(u.rowValues[cupCol], 1);
   assert.equal(u.total, 105);                        // 25+30+25+25
+  assert.equal(u.paid, 0);
+  assert.equal(u.outstanding, 105);                  // Total - Paid
 });
+
+test("food payment: settles dues, then a later purchase leaves the difference outstanding", () => {
+  // Dibakar scenario: dues 75 -> pay 75 -> Outstanding 0 -> buy 150 more.
+  const H = ["Sl No.", "Name", "Veg Chop (1 stk)", "Malpoa (1 stk)", "Ghugni (1 plate)", "Total", "Paid", "Outstanding"];
+  const priceLocal = (n) => ({ "veg chop (1 stk)": 25, "malpoa (1 stk)": 25, "ghugni (1 plate)": 25 }[String(n).toLowerCase()] || 0);
+  let rows = [[1, "Dibakar", 1, 1, 1, 75, 0, 75]];
+
+  // Pay the full 75.
+  const pay = applyFoodPayment(H, rows, "dibakar", 75);
+  assert.equal(pay.total, 75);
+  assert.equal(pay.paid, 75);
+  assert.equal(pay.outstanding, 0);
+  rows = [pay.rowValues];
+
+  // Now buy 150 more (6 items @25).
+  const buy = applyFoodDues(H, rows, "Dibakar", [
+    { item: "Veg Chop (1 stk)", qty: 2 }, { item: "Malpoa (1 stk)", qty: 2 }, { item: "Ghugni (1 plate)", qty: 2 },
+  ], priceLocal);
+  assert.equal(buy.total, 225);                      // 75 + 150
+  assert.equal(buy.paid, 75);                        // unchanged by a purchase
+  assert.equal(buy.outstanding, 150);                // 225 - 75
+});
+
+test("food payment: returns null when the guest has no dues row", () => {
+  const H = ["Sl No.", "Name", "Total", "Paid", "Outstanding"];
+  assert.equal(applyFoodPayment(H, [[1, "Someone Else", 50, 0, 50]], "Nobody", 10), null);
+});
+
+test("food payment: creates Paid/Outstanding columns if the sheet lacks them", () => {
+  const H = ["Sl No.", "Name", "Veg Chop (1 stk)", "Total"];
+  const pay = applyFoodPayment(H, [[1, "Dibakar", 3, 75]], "Dibakar", 25);
+  assert.equal(pay.headerChanged, true);
+  assert.ok(pay.headers.includes("Paid"));
+  assert.ok(pay.headers.includes("Outstanding"));
+  assert.equal(pay.paid, 25);
+  assert.equal(pay.outstanding, 50);
+});
+
 
 test("food dues: existing guest accumulates quantities and recomputes Total", () => {
   const rows = [[1, "Test Guest One", 1, "", "", 2, 2, 1, 3, 240]];

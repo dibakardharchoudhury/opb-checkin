@@ -214,6 +214,15 @@
   .foodtotalbar b { font-family:"Cormorant Garamond",serif; font-size:24px; font-variant-numeric:lining-nums tabular-nums; font-feature-settings:"lnum" 1,"tnum" 1; }
   .entrymsg { min-height:20px; font-size:13.5px; font-weight:600; margin-bottom:10px; }
   .entrymsg.ok { color:var(--ok); } .entrymsg.err { color:var(--err); } .entrymsg.busy { color:var(--muted); }
+  .dueshint { margin-bottom:12px; }
+  .duesbox { border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:14px; background:rgba(0,0,0,.015); }
+  .duesrow { display:flex; align-items:center; justify-content:space-between; padding:5px 0; font-size:14px; }
+  .duesrow span { color:var(--muted); }
+  .duesrow b { font-variant-numeric:lining-nums tabular-nums; font-feature-settings:"lnum" 1,"tnum" 1; font-weight:700; }
+  .duesrow.duesout { border-top:1px dashed var(--line); margin-top:4px; padding-top:9px; }
+  .duesrow.duesout b { font-family:"Cormorant Garamond",serif; font-size:22px; color:var(--maroon); }
+  .duesitems { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .duestag { font-size:12px; padding:3px 9px; border-radius:999px; background:var(--maroon); color:#fff; opacity:.9; }
   .dashcap-note { font-weight:600; letter-spacing:0; text-transform:none; color:var(--muted); font-size:11.5px; }
   .dashmore-wrap { text-align:center; margin-top:12px; }
   .dashmore-wrap .ghost.hidden { display:none; }
@@ -610,6 +619,23 @@
         <div id="foodMsg" class="entrymsg"></div>
         <button id="foodSave">Save purchase</button>
       </div></div>
+      <div class="dashbar"><div class="dashtitle">Food stall &mdash; dues &amp; payment</div><button id="duesRefresh" class="ghost" title="Reload dues" aria-label="Reload dues">↻</button></div>
+      <div class="card"><div class="body entryform">
+        <div class="dueshint hint">Enter a guest name above, then check their outstanding food dues and record a payment.</div>
+        <div id="duesBox" class="duesbox" hidden>
+          <div class="duesrow"><span>Consumed (total)</span><b id="duesTotal">NOK 0</b></div>
+          <div class="duesrow"><span>Paid so far</span><b id="duesPaid">NOK 0</b></div>
+          <div class="duesrow duesout"><span>Outstanding</span><b id="duesOut">NOK 0</b></div>
+          <div id="duesItems" class="duesitems"></div>
+        </div>
+        <div class="frow2">
+          <div><label for="payAmount">Payment amount (NOK)</label><input id="payAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="0" /></div>
+          <div><label for="payMethod">Method (optional)</label><input id="payMethod" list="payMethods" placeholder="Cash / Vipps / Card" autocomplete="off" /></div>
+        </div>
+        <datalist id="payMethods"><option value="Cash"></option><option value="Vipps"></option><option value="Card"></option></datalist>
+        <div id="payMsg" class="entrymsg"></div>
+        <button id="paySave">Record payment</button>
+      </div></div>
     </section>
     <section class="view" data-view="settings">
       <div id="settingsAdmin" class="hidden">
@@ -701,8 +727,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.53"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T11:37:55Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.54"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T12:35:15Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1347,11 +1373,56 @@ async function saveFood() {
     const j = await r.json(); if (!r.ok) throw new Error(j.error || "Failed");
     setFoodMsg("Saved \u00b7 " + j.added + " item(s) \u00b7 " + money(j.amount) + " \u00b7 " + name + " total " + money(j.personTotal), "ok");
     _foodQty = {}; renderFoodMenu();
+    loadDues(name);
   } catch (e) { setFoodMsg(e.message || "Could not save.", "err"); }
   finally { $("foodSave").disabled = false; }
 }
 $("foodSave").onclick = saveFood;
 $("foodRefresh").onclick = () => { _namesLoaded = false; loadGuestNames(); loadFoodMenu(); };
+
+// ---- food dues + settlement ----
+const setPayMsg = (m, cls) => { const e = $("payMsg"); e.textContent = m || ""; e.className = "entrymsg" + (cls ? " " + cls : ""); };
+function renderDues(d) {
+  const box = $("duesBox"), hint = document.querySelector('[data-view="food"] .dueshint');
+  if (!d || !d.found) { box.hidden = true; if (hint) hint.hidden = false; return; }
+  if (hint) hint.hidden = true; box.hidden = false;
+  $("duesTotal").textContent = money(d.total);
+  $("duesPaid").textContent = money(d.paid);
+  $("duesOut").textContent = money(d.outstanding);
+  const items = d.items || [];
+  $("duesItems").innerHTML = items.length ? items.map((it) => '<span class="duestag">' + esc(it.item) + " \u00d7" + it.qty + "</span>").join("") : "";
+  const pay = $("payAmount"); if (d.outstanding > 0 && !pay.value) pay.value = d.outstanding;
+}
+async function loadDues(name) {
+  name = (name || "").trim();
+  if (!name) { renderDues(null); return; }
+  try {
+    const r = await api("/api/food-dues?name=" + encodeURIComponent(name)); const j = await r.json();
+    renderDues(r.ok && j.found ? j : null);
+  } catch { renderDues(null); }
+}
+async function savePayment() {
+  const name = $("foodName").value.trim();
+  const amount = parseFloat($("payAmount").value);
+  const method = $("payMethod").value.trim();
+  if (!name) { setPayMsg("Enter the guest's name above.", "err"); return; }
+  if (!(amount > 0)) { setPayMsg("Enter a payment amount.", "err"); return; }
+  setPayMsg("Recording\u2026", "busy"); $("paySave").disabled = true;
+  try {
+    const r = await api("/api/food-settle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, amount, method }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || "Failed");
+    setPayMsg("Payment of " + money(j.amount) + " recorded \u00b7 " + name + " \u00b7 outstanding " + money(j.outstanding), "ok");
+    $("payAmount").value = ""; $("payMethod").value = "";
+    await loadDues(name);
+  } catch (e) { setPayMsg(e.message || "Could not record.", "err"); }
+  finally { $("paySave").disabled = false; }
+}
+$("paySave").onclick = savePayment;
+$("duesRefresh").onclick = () => loadDues($("foodName").value);
+let _duesTimer = null;
+$("foodName").addEventListener("change", () => loadDues($("foodName").value));
+$("foodName").addEventListener("input", () => { clearTimeout(_duesTimer); _duesTimer = setTimeout(() => loadDues($("foodName").value), 500); });
+
 
 const setPkMsg = (m, cls) => { const e = $("pkMsg"); e.textContent = m || ""; e.className = "entrymsg" + (cls ? " " + cls : ""); };
 const validPhone = (s) => /^\+?[0-9][0-9 ]{5,15}$/.test(s);

@@ -484,6 +484,9 @@ const FOOD_DUES_SHEET = "Food Stall-Dues";
 const FOOD_LOG_SHEET = "FoodStallLog";
 const FOOD_LOG_TABLE = "FoodStallLog";
 const FOOD_LOG_HEADERS = ["DateTime", "Day", "Name", "Item", "Qty", "UnitPrice", "Amount", "RecordedBy"];
+const FOOD_SETTLE_SHEET = "FoodSettlements";
+const FOOD_SETTLE_TABLE = "FoodSettlements";
+const FOOD_SETTLE_HEADERS = ["DateTime", "Name", "Amount", "Method", "PaidTotal", "Outstanding", "SettledBy"];
 const PARKING_SHEET = "Parking";
 const PARKING_TABLE = "ParkingLog";
 const PARKING_HEADERS = ["Sl No", "Timestamp", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
@@ -582,7 +585,9 @@ export function applyFoodDues(headers, dataRows, name, orders, priceOf) {
   const slCol = H.findIndex(isSl);
   const nameCol = H.findIndex((h) => lc(h) === "name");
   let totalCol = H.findIndex((h) => lc(h) === "total");
-  const isMeta = (i) => i === slCol || i === nameCol || i === totalCol;
+  let paidCol = H.findIndex((h) => lc(h) === "paid");
+  let outCol = H.findIndex((h) => ["outstanding", "due", "dues", "balance"].includes(lc(h)));
+  const isMeta = (i) => i === slCol || i === nameCol || i === totalCol || i === paidCol || i === outCol;
   const itemColOf = (item) => H.findIndex((h, i) => !isMeta(i) && lc(h) !== "" && lc(h) === lc(item));
 
   const rows = dataRows.map((r) => (r || []).slice());
@@ -609,13 +614,41 @@ export function applyFoodDues(headers, dataRows, name, orders, priceOf) {
   }
   while (row.length < H.length) row.push("");
 
-  // Recompute Total (written as a value) across every item column.
+  // Recompute Total (cumulative consumed) across every item column, excluding meta cols.
   let total = 0;
-  H.forEach((h, i) => { if (i !== slCol && i !== nameCol && i !== totalCol && lc(h) !== "") { const q = parseInt(row[i], 10) || 0; if (q > 0) total += q * (priceOf(h) || 0); } });
+  H.forEach((h, i) => { if (!isMeta(i) && lc(h) !== "") { const q = parseInt(row[i], 10) || 0; if (q > 0) total += q * (priceOf(h) || 0); } });
   if (totalCol === -1) { H.push("Total"); totalCol = H.length - 1; row.push(""); headerChanged = true; }
   row[totalCol] = Math.round(total * 100) / 100;
+  // Maintain Paid + Outstanding (= Total - Paid). Paid is only changed by settlements.
+  if (paidCol === -1) { H.push("Paid"); paidCol = H.length - 1; row.push(""); headerChanged = true; }
+  if (outCol === -1) { H.push("Outstanding"); outCol = H.length - 1; row.push(""); headerChanged = true; }
+  const paid = parseFloat(row[paidCol]) || 0;
+  row[outCol] = Math.round((row[totalCol] - paid) * 100) / 100;
 
-  return { headers: H, headerChanged, rowIndex: ri, rowValues: row, total: row[totalCol] };
+  return { headers: H, headerChanged, rowIndex: ri, rowValues: row, total: row[totalCol], paid, outstanding: row[outCol] };
+}
+
+// Apply a payment to a guest's Food Stall-Dues row: Paid += amount, Outstanding = Total - Paid.
+// Pure. Returns null if the guest has no dues row yet.
+export function applyFoodPayment(headers, dataRows, name, amount) {
+  const H = headers.map((h) => String(h ?? ""));
+  const nameCol = H.findIndex((h) => lc(h) === "name");
+  const totalCol = H.findIndex((h) => lc(h) === "total");
+  let paidCol = H.findIndex((h) => lc(h) === "paid");
+  let outCol = H.findIndex((h) => ["outstanding", "due", "dues", "balance"].includes(lc(h)));
+  const rows = dataRows.map((r) => (r || []).slice());
+  const ri = nameCol === -1 ? -1 : rows.findIndex((r) => lc(r[nameCol]) === lc(name));
+  if (ri === -1) return null;
+  let headerChanged = false;
+  if (paidCol === -1) { H.push("Paid"); paidCol = H.length - 1; headerChanged = true; }
+  if (outCol === -1) { H.push("Outstanding"); outCol = H.length - 1; headerChanged = true; }
+  const row = rows[ri];
+  while (row.length < H.length) row.push("");
+  const total = totalCol !== -1 ? (parseFloat(row[totalCol]) || 0) : 0;
+  const paid = Math.round(((parseFloat(row[paidCol]) || 0) + (parseFloat(amount) || 0)) * 100) / 100;
+  row[paidCol] = paid;
+  row[outCol] = Math.round((total - paid) * 100) / 100;
+  return { headers: H, headerChanged, rowIndex: ri, rowValues: row, total, paid, outstanding: row[outCol] };
 }
 
 // Normalize a raw Parking row to [Sl No, Timestamp, Name, Mobile, Reg, Make, Model, Colour].
@@ -735,10 +768,86 @@ app.post("/api/food-entry", requireAuth(), async (req, res) => {
       await addTableRows(token, base, session, table, logRows);
     } catch (e) { console.warn("food audit log failed:", e?.message || e); }
 
-    res.json({ ok: true, added: items.length, amount: Math.round(addedAmount * 100) / 100, personTotal: Number(upd.total) || 0 });
+    res.json({ ok: true, added: items.length, amount: Math.round(addedAmount * 100) / 100, personTotal: Number(upd.total) || 0, paid: Number(upd.paid) || 0, outstanding: Number(upd.outstanding) || 0 });
   } catch (e) {
     console.error("food-entry failed:", e?.message || e);
     res.status(500).json({ error: "Could not save the purchase.", detail: e?.message || String(e) });
+  } finally { if (token && base && session) await closeSession(token, base, session); }
+});
+
+// GET /api/food-dues?name= -> a guest's current dues snapshot (Total consumed, Paid, Outstanding).
+app.get("/api/food-dues", requireAuth(), async (req, res) => {
+  const name = clean(req.query.name);
+  if (!name) return res.json({ found: false });
+  let token, base, session;
+  try {
+    const { loc } = await wbContext();
+    token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    const raw = await readUsedRangeRaw(token, base, session, FOOD_DUES_SHEET);
+    const values = raw.values || [];
+    let hRow = values.findIndex((r) => r.some((c) => lc(c) === "name") && r.some((c) => lc(c) === "total"));
+    if (hRow === -1) hRow = values.findIndex((r) => r.some((c) => lc(c) === "name"));
+    if (hRow === -1) return res.json({ found: false });
+    const H = (values[hRow] || []).map((h) => String(h ?? ""));
+    const nameCol = H.findIndex((h) => lc(h) === "name");
+    const totalCol = H.findIndex((h) => lc(h) === "total");
+    const paidCol = H.findIndex((h) => lc(h) === "paid");
+    const outCol = H.findIndex((h) => ["outstanding", "due", "dues", "balance"].includes(lc(h)));
+    const slCol = H.findIndex((h) => /^(sl\.?\s*no\.?|serial|#)$/i.test(String(h).trim()));
+    const row = values.slice(hRow + 1).find((r) => lc(r[nameCol]) === lc(name));
+    if (!row) return res.json({ found: false, name });
+    const total = totalCol !== -1 ? parsePrice(row[totalCol]) : 0;
+    const paid = paidCol !== -1 ? parsePrice(row[paidCol]) : 0;
+    const outstanding = outCol !== -1 ? parsePrice(row[outCol]) : Math.round((total - paid) * 100) / 100;
+    const items = [];
+    H.forEach((h, i) => { if (i !== slCol && i !== nameCol && i !== totalCol && i !== paidCol && i !== outCol && lc(h) !== "") { const q = parseInt(row[i], 10); if (Number.isFinite(q) && q > 0) items.push({ item: h, qty: q }); } });
+    res.json({ found: true, name, total, paid, outstanding, items });
+  } catch (e) {
+    console.error("food-dues failed:", e?.message || e);
+    res.status(500).json({ error: "Could not load dues." });
+  } finally { if (token && base && session) await closeSession(token, base, session); }
+});
+
+// POST /api/food-settle { name, amount, method? } -> record a payment; log to FoodSettlements.
+app.post("/api/food-settle", requireAuth(), async (req, res) => {
+  const name = clean(req.body?.name);
+  const amount = Math.round((parseFloat(req.body?.amount) || 0) * 100) / 100;
+  const method = clean(req.body?.method);
+  if (!name) return res.status(400).json({ error: "Guest name is required." });
+  if (!(amount > 0)) return res.status(400).json({ error: "Enter a payment amount greater than 0." });
+  let token, base, session;
+  try {
+    const { loc } = await wbContext();
+    token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    const raw = await readUsedRangeRaw(token, base, session, FOOD_DUES_SHEET);
+    const values = raw.values || [];
+    let hRow = values.findIndex((r) => r.some((c) => lc(c) === "name") && r.some((c) => lc(c) === "total"));
+    if (hRow === -1) hRow = values.findIndex((r) => r.some((c) => lc(c) === "name"));
+    if (hRow === -1) return res.status(404).json({ error: "No dues sheet found." });
+    const duesHeaders = (values[hRow] || []).map((h) => String(h ?? ""));
+    const upd = applyFoodPayment(duesHeaders, values.slice(hRow + 1), name, amount);
+    if (!upd) return res.status(404).json({ error: `No food dues found for ${name}.` });
+    const c0 = raw.columnIndex, headerRow1 = raw.rowIndex + hRow + 1;
+    const startL = colLetter(c0 + 1), endL = colLetter(c0 + upd.headers.length);
+    if (upd.headerChanged) await writeRange(token, base, session, FOOD_DUES_SHEET, `${startL}${headerRow1}:${endL}${headerRow1}`, [upd.headers]);
+    const rowNo = headerRow1 + 1 + upd.rowIndex;
+    await writeRange(token, base, session, FOOD_DUES_SHEET, `${startL}${rowNo}:${endL}${rowNo}`, [upd.rowValues]);
+    // Append an audit line to FoodSettlements.
+    try {
+      const table = await ensureLogTable(token, base, session, FOOD_SETTLE_SHEET, FOOD_SETTLE_HEADERS, FOOD_SETTLE_TABLE);
+      const headers = await tableHeaders(token, base, session, table);
+      const logRow = rowForHeaders(headers, [
+        [["datetime", "date time", "time"], nowInZone(TZ).iso], [["name"], name],
+        [["amount", "paid amount"], amount], [["method", "mode"], method],
+        [["paidtotal", "paid total", "paid"], upd.paid], [["outstanding", "due", "dues", "balance"], upd.outstanding],
+        [["settledby", "recorded by", "recordedby", "by"], req.user.email],
+      ]);
+      await addTableRows(token, base, session, table, [logRow]);
+    } catch (e) { console.warn("settle log failed:", e?.message || e); }
+    res.json({ ok: true, name, amount, total: upd.total, paid: upd.paid, outstanding: upd.outstanding });
+  } catch (e) {
+    console.error("food-settle failed:", e?.message || e);
+    res.status(500).json({ error: "Could not record the payment.", detail: e?.message || String(e) });
   } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 
