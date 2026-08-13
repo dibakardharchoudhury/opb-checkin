@@ -378,9 +378,13 @@ app.get("/api/passtypes", requireAuth(), async (req, res) => {
     const table = await tableForSheet(token, base, session, sheet);
     const { headers, rows } = await readTable(token, base, session, table);
     const c = colFinder(headers);
+    // "Item" = the pass description; when it's absent the sheet's only pass categorization is the
+    // PassType column itself, so the walk-in form drops the separate Meal field.
+    const itemCol = headers.findIndex((h) => String(h ?? "").trim().toLowerCase() === "item");
+    const srcCol = itemCol !== -1 ? itemCol : c.meal;
     const seen = new Map(); // lower-cased -> first-seen display form (de-dupes case variants)
-    if (c.item !== -1) for (const r of rows) { const it = String(r.values[c.item] ?? "").trim(); if (it && !seen.has(it.toLowerCase())) seen.set(it.toLowerCase(), it); }
-    const data = { passTypes: [...seen.values()].sort((a, b) => a.localeCompare(b)) };
+    if (srcCol !== -1) for (const r of rows) { const it = String(r.values[srcCol] ?? "").trim(); if (it && !seen.has(it.toLowerCase())) seen.set(it.toLowerCase(), it); }
+    const data = { passTypes: [...seen.values()].sort((a, b) => a.localeCompare(b)), hasItem: itemCol !== -1 };
     passTypesCache = { key, at: Date.now(), data };
     res.json(data);
   } catch (e) {
@@ -990,7 +994,9 @@ app.post("/api/walkin", requireAuth(), async (req, res) => {
   const mobile = clean(req.body?.mobile);
   const passType = clean(req.body?.passType) || "Walk-in";
   const mealRaw = clean(req.body?.meal);
-  const meal = /dinner/i.test(mealRaw) ? "Dinner" : "Lunch";
+  // Meal is only sent when the sheet has a separate Item column; otherwise PassType holds the pass type.
+  const meal = /dinner/i.test(mealRaw) ? "Dinner" : /lunch/i.test(mealRaw) ? "Lunch" : "";
+  const passTypeVal = meal || passType;
   const foodOption = clean(req.body?.foodOption);
   const qty = Math.max(1, Math.min(99, parseInt(req.body?.quantity, 10) || 1));
   const comments = clean(req.body?.comments);
@@ -1027,7 +1033,7 @@ app.post("/api/walkin", requireAuth(), async (req, res) => {
       if (l === "name") return name;
       if (l === "item" || l === "pass" || l === "pass description") return passType;
       if (l === "date") return ymd;
-      if (l === "passtype" || l === "pass type" || l === "meal" || l === "session") return meal;
+      if (l === "passtype" || l === "pass type" || l === "meal" || l === "session") return passTypeVal;
       if (l === "foodoption" || l === "food option" || l === "food") return foodOption;
       if (l === "quantity" || l === "qty") return qty;
       if (l.includes("mobile") || l.includes("phone") || l.includes("contact")) return mobile;

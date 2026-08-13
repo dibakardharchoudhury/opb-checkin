@@ -179,6 +179,7 @@
   .entryform .frow { margin-bottom:12px; }
   .entryform .frow2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
   .entryform .frow3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px; }
+  .entryform .frow3.cols2 { grid-template-columns:1fr 1fr; }
   .entryform label { display:block; font-size:12px; font-weight:600; color:var(--maroon); margin-bottom:5px; letter-spacing:.2px; }
   .entryform input, .entryform select { width:100%; padding:12px 12px; border:1px solid rgba(217,164,65,.55); border-radius:12px;
     background:var(--ivory); color:var(--ink); font-size:15px; font-family:inherit; }
@@ -605,9 +606,9 @@
           <div><label for="wkPass">Pass type</label><input id="wkPass" list="wkPassTypes" placeholder="e.g. Season pass" autocomplete="off" maxlength="60" /></div>
         </div>
         <datalist id="wkPassTypes"><option value="Season pass"></option><option value="Single-day pass"></option><option value="Entry"></option><option value="Concert"></option></datalist>
-        <div class="frow3">
+        <div class="frow3" id="wkRowDMQ">
           <div><label for="wkDate">Day</label><input id="wkDate" type="date" /></div>
-          <div><label for="wkMeal">Meal</label><select id="wkMeal"><option value="Lunch">Lunch</option><option value="Dinner">Dinner</option></select></div>
+          <div id="wkMealWrap"><label for="wkMeal">Meal</label><select id="wkMeal"><option value="Lunch">Lunch</option><option value="Dinner">Dinner</option></select></div>
           <div><label for="wkQty">Quantity</label><input id="wkQty" type="number" min="1" max="99" step="1" value="1" inputmode="numeric" /></div>
         </div>
         <div class="frow2">
@@ -758,8 +759,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.63"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T14:30:39Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.64"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T14:36:36Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1517,16 +1518,18 @@ $("pkSave").onclick = savePark;
 
 // ---- walk-in registration (app-owned Walk-ins sheet; recorded only after payment) ----
 const setWkMsg = (m, cls) => { const e = $("wkMsg"); e.textContent = m || ""; e.className = "entrymsg" + (cls ? " " + cls : ""); };
-let _passTypesLoaded = false;
+let _passTypesLoaded = false, _wkHasItem = true;
 async function loadPassTypes() {
   if (_passTypesLoaded) return;
   try {
     const r = await api("/api/passtypes"); const j = await r.json();
-    if (r.ok && Array.isArray(j.passTypes) && j.passTypes.length) {
-      $("wkPassTypes").innerHTML = j.passTypes.map((p) => '<option value="' + esc(p) + '"></option>').join("");
-      _passTypesLoaded = true;
-    }
-  } catch { /* keep the static fallback options */ }
+    if (!r.ok) return;
+    if (Array.isArray(j.passTypes) && j.passTypes.length) $("wkPassTypes").innerHTML = j.passTypes.map((p) => '<option value="' + esc(p) + '"></option>').join("");
+    _wkHasItem = j.hasItem !== false;                 // no Item column -> pass type IS the session; drop Meal
+    $("wkMealWrap").hidden = !_wkHasItem;
+    $("wkRowDMQ").classList.toggle("cols2", !_wkHasItem);
+    _passTypesLoaded = true;
+  } catch { /* keep the static fallback options + Meal field */ }
 }
 function openWalkin() {
   const d = $("wkDate"); if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
@@ -1541,7 +1544,7 @@ document.addEventListener("change", (e) => { if (e.target && e.target.id === "wk
 async function saveWalkin() {
   const b = {
     name: $("wkName").value.trim(), mobile: $("wkMobile").value.trim(), passType: $("wkPass").value.trim(),
-    date: $("wkDate").value, meal: $("wkMeal").value, foodOption: $("wkFood").value,
+    date: $("wkDate").value, meal: _wkHasItem ? $("wkMeal").value : "", foodOption: $("wkFood").value,
     quantity: parseInt($("wkQty").value, 10) || 1, comments: $("wkPay").value.trim(),
   };
   if (b.name.length < 2 || !isName(b.name)) { setWkMsg("Guest name should be letters only.", "err"); $("wkName").focus(); return; }
