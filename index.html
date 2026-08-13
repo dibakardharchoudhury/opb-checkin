@@ -569,6 +569,7 @@
         <div class="dashcard"><div class="dashcap">Food stall &mdash; dues <span id="foodNote" class="dashcap-note"></span></div><div class="chartbox"><canvas id="chartFood"></canvas></div></div>
         <div class="dashcard"><div class="dashcap">Parking &mdash; cars by make <span id="parkNote" class="dashcap-note"></span></div><div class="chartbox"><canvas id="chartParking"></canvas></div></div>
       </div>
+      <div class="dashcard"><div class="dashcap">Top 5 outstanding dues <span id="topDuesNote" class="dashcap-note"></span></div><div class="chartbox chartbox-wide"><canvas id="chartTopDues"></canvas></div></div>
       <div class="dashcard"><div class="dashcap">Check-ins by event session <span id="sessNote" class="dashcap-note"></span></div><div id="dashSessions"></div></div>
       <div class="dashcard">
         <div class="dashcap">Recent check-ins <span id="dashLogNote" class="dashcap-note"></span></div>
@@ -755,8 +756,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.59"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T13:35:30Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.60"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T13:40:26Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1125,7 +1126,7 @@ function exportCsv() {
 $("sheetExport").onclick = exportCsv;
 
 // ---- dashboard (event-wide analytics + interactive charts) ----
-let _chartDay = null, _chartPass = null, _chartFlow = null, _chartFood = null, _chartParking = null, _chartDate = null;
+let _chartDay = null, _chartPass = null, _chartFlow = null, _chartFood = null, _chartParking = null, _chartDate = null, _chartTopDues = null;
 let _summary = null, _dayFilter = null, _stacked = false;
 const DAY_ORDER = ["Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"];
 const MEAL_ORDER = ["Breakfast", "Lunch", "Dinner", "Free Entry"];
@@ -1186,6 +1187,7 @@ function renderDashboard() {
   renderFlowChart(recent);
   renderDateChart(_summary && _summary.byDate);
   renderFoodChart(_summary && _summary.food);
+  renderTopDuesChart(_summary && _summary.food);
   renderParkingChart(_summary && _summary.parking);
   renderSessions(sessions);
   $("sessNote").textContent = _dayFilter ? "\u00b7 " + _dayFilter : "";
@@ -1309,7 +1311,7 @@ function renderFoodChart(food) {
   if (!total && !paid && !outstanding) { $("foodNote").textContent = "\u00b7 no dues yet"; _chartFood = null; return; }
   $("foodNote").textContent = "\u00b7 " + money(outstanding) + " outstanding \u00b7 " + (food.owing || 0) + " of " + (food.guests || 0) + " owing";
   _chartFood = new Chart(cv, { type: "bar", data: { labels: ["Consumed", "Paid", "Outstanding"], datasets: [{ label: "NOK", data: [total, paid, outstanding], backgroundColor: ["#6e1526", "#2e9c54", "#d9a441"], borderRadius: 6, maxBarThickness: 60 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => money(c.parsed.y) } } },
+    options: { indexAxis: "x", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => money(c.parsed.y) } } },
       scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: (v) => money(v) }, grid: { color: "rgba(0,0,0,.06)" } } } } });
 }
 
@@ -1321,8 +1323,20 @@ function renderParkingChart(parking) {
   if (!byMake.length) { $("parkNote").textContent = "\u00b7 no cars yet"; _chartParking = null; return; }
   $("parkNote").textContent = "\u00b7 " + (parking.total || 0) + " cars";
   _chartParking = new Chart(cv, { type: "bar", data: { labels: byMake.map((m) => m.label), datasets: [{ label: "Cars", data: byMake.map((m) => m.count), backgroundColor: byMake.map((_, i) => PALETTE[i % PALETTE.length]), borderRadius: 6, maxBarThickness: 46 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+    options: { indexAxis: "x", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
       scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.06)" } } } } });
+}
+
+// Top 5 guests by outstanding food dues (vertical bars); note shows how many owe.
+function renderTopDuesChart(food) {
+  const cv = $("chartTopDues"); if (!cv || !window.Chart) return;
+  const rows = (food && food.topDues) || [];
+  if (_chartTopDues) _chartTopDues.destroy();
+  if (!rows.length) { $("topDuesNote").textContent = "\u00b7 no outstanding dues"; _chartTopDues = null; return; }
+  $("topDuesNote").textContent = "\u00b7 " + (food.owing || rows.length) + " owing";
+  _chartTopDues = new Chart(cv, { type: "bar", data: { labels: rows.map((r) => r.name), datasets: [{ label: "Outstanding", data: rows.map((r) => r.outstanding), backgroundColor: rows.map((_, i) => PALETTE[i % PALETTE.length]), borderRadius: 6, maxBarThickness: 60 }] },
+    options: { indexAxis: "x", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => money(c.parsed.y) } } },
+      scales: { x: { grid: { display: false }, ticks: { autoSkip: false, font: { size: 11 } } }, y: { beginAtZero: true, ticks: { callback: (v) => money(v) }, grid: { color: "rgba(0,0,0,.06)" } } } } });
 }
 $("dashRefresh").onclick = () => loadDashboard(true);
 

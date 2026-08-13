@@ -437,7 +437,7 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
           return { t, rows, c };
         } catch { return null; }
       }),
-      readFoodDuesSummary(token, base, session).catch(() => ({ items: [], revenue: 0, guests: 0, total: 0, paid: 0, outstanding: 0, owing: 0 })),
+      readFoodDuesSummary(token, base, session).catch(() => ({ items: [], revenue: 0, guests: 0, total: 0, paid: 0, outstanding: 0, owing: 0, topDues: [] })),
       readParkingSummary(token, base, session).catch(() => ({ total: 0, byMake: [] })),
     ]);
     for (const rd of reads) {
@@ -690,6 +690,7 @@ async function readFoodDuesSummary(token, base, session) {
   const itemCols = headers.map((h, i) => ({ h, i })).filter(({ h, i }) => !isMeta(i) && lc(h) !== "");
   const items = itemCols.map(({ h }) => ({ item: h, qty: 0 }));
   let revenue = 0, guests = 0, paid = 0, outstanding = 0, owing = 0;
+  const perGuest = [];
   for (const r of values.slice(hRow + 1)) {
     if (nameCol !== -1 && String(r[nameCol] ?? "").trim() === "") continue;
     guests++;
@@ -698,10 +699,11 @@ async function readFoodDuesSummary(token, base, session) {
     const p = paidCol !== -1 ? parsePrice(r[paidCol]) : 0;
     const o = outCol !== -1 ? parsePrice(r[outCol]) : Math.max(0, t - p);
     revenue += t; paid += p; outstanding += o;
-    if (o > 0.005) owing++;
+    if (o > 0.005) { owing++; perGuest.push({ name: (nameCol !== -1 ? String(r[nameCol] ?? "").trim() : "") || "Unnamed", outstanding: Math.round(o * 100) / 100 }); }
   }
   const r2 = (n) => Math.round(n * 100) / 100;
-  return { items: items.filter((x) => x.qty > 0).sort((a, b) => b.qty - a.qty), revenue: r2(revenue), guests, total: r2(revenue), paid: r2(paid), outstanding: r2(outstanding), owing };
+  const topDues = perGuest.sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
+  return { items: items.filter((x) => x.qty > 0).sort((a, b) => b.qty - a.qty), revenue: r2(revenue), guests, total: r2(revenue), paid: r2(paid), outstanding: r2(outstanding), owing, topDues };
 }
 
 // Dashboard aggregate: car count and breakdown by make from the Parking sheet.
