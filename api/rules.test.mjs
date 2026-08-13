@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateScan, excelSerial, sessionFor, passDateYMD, nowInZone } from "./rules.js";
-import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu, applyFoodDues, applyFoodPayment, normalizeParkingRow, deFormula } from "./server.js";
+import { rowForHeaders, parsePrice, parkingStamp, parseFoodMenu, applyFoodDues, applyFoodPayment, normalizeParkingRow, deFormula, nextWalkinId } from "./server.js";
 
 // Variant A — discrete columns (Oslo Durgotsav 2025 App_Source shape).
 const headersA = ["RegistrationID", "UniqueKey", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Status", "DateTime"];
@@ -319,6 +319,13 @@ test("food payment: settles dues, then a later purchase leaves the difference ou
 test("food payment: returns null when the guest has no dues row", () => {
   const H = ["Sl No.", "Name", "Total", "Paid", "Outstanding"];
   assert.equal(applyFoodPayment(H, [[1, "Someone Else", 50, 0, 50]], "Nobody", 10), null);
+});
+
+test("walk-in id: increments the highest W-id, never collides with numeric orders", () => {
+  assert.equal(nextWalkinId([]), "W-0001");
+  assert.equal(nextWalkinId([3000, 3011, "3043"]), "W-0001");   // numeric source orders ignored
+  assert.equal(nextWalkinId(["W-0001", "W-0007", "W-0003"]), "W-0008");
+  assert.equal(nextWalkinId(["w-12", "", null, "W-0005"]), "W-0013");
 });
 
 test("food payment: creates Paid/Outstanding columns if the sheet lacks them", () => {

@@ -492,6 +492,10 @@ const FOOD_SETTLE_HEADERS = ["DateTime", "Name", "Amount", "Method", "PaidTotal"
 const PARKING_SHEET = "Parking";
 const PARKING_TABLE = "ParkingLog";
 const PARKING_HEADERS = ["Sl No", "Timestamp", "Name", "Mobile Number", "Car Registration number", "Car Make", "Car Model", "Car Colour"];
+const WALKIN_SHEET = "Walk-ins";
+const WALKIN_TABLE = "WalkIns";
+// Mirrors the App_Source pass shape so walk-ins reconcile the same way; app-owned, never written to App_Source.
+const WALKIN_HEADERS = ["RegistrationID", "First Name", "Last Name", "Item", "Date", "PassType", "FoodOption", "Quantity", "Mobile Number", "Status", "Comments", "RegisteredBy", "DateTime"];
 const MAXLEN = 120;
 // Neutralize spreadsheet formula injection: a cell starting with = or @ (or a non-numeric
 // + / -) can be executed as a formula by Excel. Prefix such text with an apostrophe so it
@@ -510,6 +514,13 @@ function weekdayName(tz, when = new Date()) {
 export function parkingStamp(dateYmd, clock) {
   const two = (n) => String(n).padStart(2, "0");
   return `${dateYmd} ${two(clock.h)}:${two(clock.mi)}:${two(clock.s)}`;
+}
+
+// Next walk-in id ("W-0001") from existing ids; never collides with numeric source order numbers.
+export function nextWalkinId(ids) {
+  let max = 0;
+  for (const v of ids || []) { const m = String(v ?? "").trim().match(/^W-?0*(\d+)$/i); if (m) max = Math.max(max, parseInt(m[1], 10)); }
+  return "W-" + String(max + 1).padStart(4, "0");
 }
 
 // Build a row in an existing table's own column order by matching each header to a field.
@@ -904,6 +915,69 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
   } catch (e) {
     console.error("parking-entry failed:", e?.message || e);
     res.status(500).json({ error: "Could not save the car.", detail: e?.message || String(e) });
+  } finally { if (token && base && session) await closeSession(token, base, session); }
+});
+
+// POST /api/walkin { name, mobile?, passType, date?, meal, foodOption?, quantity, comments }
+// Records a gate walk-in into the app-owned "Walk-ins" sheet (never App_Source). Recorded only
+// after payment: no payment-type field — the payment mode/reference lives in Comments, and the
+// registering volunteer is stamped in RegisteredBy. The pass is REGISTERED (attended) on the spot.
+app.post("/api/walkin", requireAuth(), async (req, res) => {
+  const name = clean(req.body?.name);
+  const mobile = clean(req.body?.mobile);
+  const passType = clean(req.body?.passType) || "Walk-in";
+  const mealRaw = clean(req.body?.meal);
+  const meal = /dinner/i.test(mealRaw) ? "Dinner" : "Lunch";
+  const foodOption = clean(req.body?.foodOption);
+  const qty = Math.max(1, Math.min(99, parseInt(req.body?.quantity, 10) || 1));
+  const comments = clean(req.body?.comments);
+  const dateStr = clean(req.body?.date);
+  const ymd = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : nowInZone(TZ).ymd;
+  if (!name) return res.status(400).json({ error: "Guest name is required." });
+  if (!/^[\p{L}][\p{L} .'-]*$/u.test(name)) return res.status(400).json({ error: "Guest name should be letters only." });
+  if (mobile && !/^\+?[0-9][0-9 ]{5,15}$/.test(mobile)) return res.status(400).json({ error: "Mobile number is not valid." });
+  if (!comments) return res.status(400).json({ error: "Enter the payment mode/reference (paid via source portal or Vipps)." });
+  const parts = name.split(/\s+/);
+  const first = parts.shift() || name, last = parts.join(" ");
+  let token, base, session;
+  try {
+    const { loc } = await wbContext();
+    token = await getAccessToken(); base = workbookBase(loc); session = await openSession(token, base);
+    const table = await ensureLogTable(token, base, session, WALKIN_SHEET, WALKIN_HEADERS, WALKIN_TABLE);
+    const headers = await tableHeaders(token, base, session, table);
+    // Next W-id from whatever ids already exist on the sheet.
+    let ids = [];
+    try {
+      const rr = await readUsedRangeRaw(token, base, session, WALKIN_SHEET);
+      const hr = rr.values.findIndex((r) => r.some((c) => /registrationid|order/i.test(String(c ?? ""))));
+      const idIdx = hr === -1 ? 0 : (rr.values[hr] || []).findIndex((c) => /registrationid|order/i.test(String(c ?? "")));
+      ids = rr.values.slice((hr === -1 ? 0 : hr) + 1).map((r) => r[idIdx]);
+    } catch { /* optional */ }
+    const wid = nextWalkinId(ids);
+    const iso = nowInZone(TZ).iso;
+    const val = (h) => {
+      const l = lc(h);
+      if (l === "registrationid" || l === "order number" || l === "ordernumber" || l === "order" || l === "id") return wid;
+      if (l === "first name" || l === "firstname") return first;
+      if (l === "last name" || l === "lastname") return last;
+      if (l === "name") return name;
+      if (l === "item" || l === "pass" || l === "pass description") return passType;
+      if (l === "date") return ymd;
+      if (l === "passtype" || l === "pass type" || l === "meal" || l === "session") return meal;
+      if (l === "foodoption" || l === "food option" || l === "food") return foodOption;
+      if (l === "quantity" || l === "qty") return qty;
+      if (l.includes("mobile") || l.includes("phone") || l.includes("contact")) return mobile;
+      if (l === "status") return "REGISTERED";
+      if (l === "comments" || l === "comment" || l === "remarks" || l === "notes") return comments;
+      if (l === "registeredby" || l === "registered by" || l === "recordedby" || l === "recorded by") return req.user.email;
+      if (l === "datetime" || l === "date time" || l === "time" || l === "timestamp") return iso;
+      return "";
+    };
+    await addTableRows(token, base, session, table, [headers.map(val)]);
+    res.json({ ok: true, id: wid, name, quantity: qty });
+  } catch (e) {
+    console.error("walkin failed:", e?.message || e);
+    res.status(500).json({ error: "Could not register the walk-in.", detail: e?.message || String(e) });
   } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 

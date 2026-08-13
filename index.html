@@ -178,6 +178,7 @@
   /* ---- parking / food entry forms ---- */
   .entryform .frow { margin-bottom:12px; }
   .entryform .frow2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .entryform .frow3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px; }
   .entryform label { display:block; font-size:12px; font-weight:600; color:var(--maroon); margin-bottom:5px; letter-spacing:.2px; }
   .entryform input, .entryform select { width:100%; padding:12px 12px; border:1px solid rgba(217,164,65,.55); border-radius:12px;
     background:var(--ivory); color:var(--ink); font-size:15px; font-family:inherit; }
@@ -454,6 +455,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
       Scan &amp; Register
     </a>
+    <a data-view="walkin">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+      Walk-in
+    </a>
     <a data-view="dashboard">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
       Dashboard
@@ -586,6 +591,30 @@
           <tbody id="gtbody"></tbody>
         </table>
       </div>
+    </section>
+    <section class="view" data-view="walkin">
+      <div class="dashbar"><div class="dashtitle">Walk-in &mdash; register a guest</div></div>
+      <div class="card"><div class="body entryform">
+        <div class="dueshint hint">Record a walk-in only <b>after payment</b> (paid via the source portal or Vipps). The payment mode/reference is stored in Comments; your name is recorded as the registrar.</div>
+        <div class="frow"><label for="wkName">Guest name</label><input id="wkName" list="guestNames" placeholder="Full name" autocomplete="off" maxlength="80" /></div>
+        <div class="frow2">
+          <div><label for="wkMobile">Mobile (optional)</label><input id="wkMobile" inputmode="tel" placeholder="e.g. +47 400 00 000" maxlength="18" /></div>
+          <div><label for="wkPass">Pass type</label><input id="wkPass" list="wkPassTypes" placeholder="e.g. Season pass" autocomplete="off" maxlength="60" /></div>
+        </div>
+        <datalist id="wkPassTypes"><option value="Season pass"></option><option value="Single-day pass"></option><option value="Entry"></option><option value="Concert"></option></datalist>
+        <div class="frow3">
+          <div><label for="wkDate">Day</label><input id="wkDate" type="date" /></div>
+          <div><label for="wkMeal">Meal</label><select id="wkMeal"><option value="Lunch">Lunch</option><option value="Dinner">Dinner</option></select></div>
+          <div><label for="wkQty">Quantity</label><input id="wkQty" type="number" min="1" max="99" step="1" value="1" inputmode="numeric" /></div>
+        </div>
+        <div class="frow2">
+          <div><label for="wkFood">Food option</label><select id="wkFood"><option value="">None</option><option value="Veg">Veg</option><option value="Non-veg">Non-veg</option></select></div>
+          <div><label for="wkPay">Payment mode &amp; reference</label><input id="wkPay" list="wkPayModes" placeholder="e.g. Vipps 12345678" autocomplete="off" maxlength="80" /></div>
+        </div>
+        <datalist id="wkPayModes"><option value="Vipps"></option><option value="Source portal"></option><option value="Cash"></option><option value="Card"></option></datalist>
+        <div id="wkMsg" class="entrymsg"></div>
+        <button id="wkSave">Register walk-in</button>
+      </div></div>
     </section>
     <section class="view" data-view="parking">
       <div class="dashbar"><div class="dashtitle">Parking &mdash; add a car</div></div>
@@ -726,8 +755,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.58"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T13:28:37Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.59"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T13:35:30Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1456,6 +1485,40 @@ async function savePark() {
 }
 $("pkSave").onclick = savePark;
 
+// ---- walk-in registration (app-owned Walk-ins sheet; recorded only after payment) ----
+const setWkMsg = (m, cls) => { const e = $("wkMsg"); e.textContent = m || ""; e.className = "entrymsg" + (cls ? " " + cls : ""); };
+function openWalkin() {
+  const d = $("wkDate"); if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+  const meal = $("wkMeal"); if (meal && !meal.dataset.touched) {
+    const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", hour: "2-digit", hour12: false }).format(new Date()));
+    meal.value = h >= 16 ? "Dinner" : "Lunch";
+  }
+  loadGuestNames();
+}
+document.addEventListener("change", (e) => { if (e.target && e.target.id === "wkMeal") e.target.dataset.touched = "1"; });
+async function saveWalkin() {
+  const b = {
+    name: $("wkName").value.trim(), mobile: $("wkMobile").value.trim(), passType: $("wkPass").value.trim(),
+    date: $("wkDate").value, meal: $("wkMeal").value, foodOption: $("wkFood").value,
+    quantity: parseInt($("wkQty").value, 10) || 1, comments: $("wkPay").value.trim(),
+  };
+  if (b.name.length < 2 || !isName(b.name)) { setWkMsg("Guest name should be letters only.", "err"); $("wkName").focus(); return; }
+  if (b.mobile && !validPhone(b.mobile)) { setWkMsg("Mobile number looks invalid \u2014 digits only, e.g. +47 400 00 000.", "err"); $("wkMobile").focus(); return; }
+  if (!b.passType) { setWkMsg("Choose or type a pass type.", "err"); $("wkPass").focus(); return; }
+  if (!(b.quantity >= 1)) { setWkMsg("Quantity must be at least 1.", "err"); $("wkQty").focus(); return; }
+  if (!b.comments) { setWkMsg("Enter the payment mode/reference (paid via source portal or Vipps).", "err"); $("wkPay").focus(); return; }
+  setWkMsg("Registering\u2026", "busy"); $("wkSave").disabled = true;
+  try {
+    const r = await api("/api/walkin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || "Failed");
+    setWkMsg("Registered \u2713 " + esc(j.id || "") + " \u00b7 " + b.name + " \u00b7 " + b.quantity + " pass" + (b.quantity === 1 ? "" : "es"), "ok");
+    ["wkName", "wkMobile", "wkPass", "wkPay"].forEach((id) => { $(id).value = ""; });
+    $("wkQty").value = "1"; $("wkName").focus();
+  } catch (e) { setWkMsg(e.message || "Could not register.", "err"); }
+  finally { $("wkSave").disabled = false; }
+}
+$("wkSave").onclick = saveWalkin;
+
 // ---- admin: volunteer / role management (Settings) ----
 function openSettings() {
   const admin = isAdmin();
@@ -1523,7 +1586,7 @@ $("uEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") addUser(
 $("userList").addEventListener("click", (e) => { const b = e.target.closest(".rm"); if (b) removeUserEmail(b.dataset.email); });
 
 // ---- navigation (tabs + mobile drawer) ----
-const labels = { scan:"Scan & Register", dashboard:"Dashboard", guests:"Reports", parking:"Parking", food:"Food Stall-Dues", settings:"Settings" };
+const labels = { scan:"Scan & Register", walkin:"Walk-in", dashboard:"Dashboard", guests:"Reports", parking:"Parking", food:"Food Stall-Dues", settings:"Settings" };
 function showView(name) {
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === name));
   document.querySelectorAll("main .view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
@@ -1532,6 +1595,7 @@ function showView(name) {
   document.body.classList.toggle("view-guests", name === "guests");
   if (name === "guests") openGuests();
   if (name === "dashboard") loadDashboard(false);
+  if (name === "walkin") openWalkin();
   if (name === "parking") openParking();
   if (name === "food") openFood();
   if (name === "settings") openSettings();
