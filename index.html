@@ -599,10 +599,7 @@
           <div><label for="pkMake">Make</label><input id="pkMake" placeholder="e.g. Toyota" maxlength="40" /></div>
           <div><label for="pkModel">Model</label><input id="pkModel" placeholder="e.g. Corolla" maxlength="40" /></div>
         </div>
-        <div class="frow2">
-          <div><label for="pkColour">Colour</label><input id="pkColour" placeholder="e.g. Silver" maxlength="30" /></div>
-          <div><label for="pkDate">Date</label><input id="pkDate" type="date" /></div>
-        </div>
+        <div class="frow"><label for="pkColour">Colour</label><input id="pkColour" placeholder="e.g. Silver" maxlength="30" /></div>
         <div id="pkMsg" class="entrymsg"></div>
         <button id="pkSave">Save car</button>
       </div></div>
@@ -729,8 +726,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.56"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T13:23:29Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.57"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-08-13T13:26:50Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1304,7 +1301,6 @@ let _foodMenu = [], _foodQty = {}, _namesLoaded = false;
 function money(n) { return "NOK " + (Math.round(Number(n || 0) * 100) / 100).toLocaleString("en-US"); }
 
 function openParking() {
-  const d = $("pkDate"); if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
   loadGuestNames();
 }
 async function openFood() { const d = $("foodDate"); if (d && !d.value) d.value = new Date().toISOString().slice(0, 10); loadGuestNames(); await loadFoodMenu(); }
@@ -1437,7 +1433,7 @@ const isModel = (s) => /^[\p{L}\p{N} .-]+$/u.test(s) && /\p{L}/u.test(s); // let
 async function savePark() {
   const b = {
     name: $("pkName").value.trim(), mobile: $("pkMobile").value.trim(), reg: $("pkReg").value.trim(),
-    make: $("pkMake").value.trim(), model: $("pkModel").value.trim(), colour: $("pkColour").value.trim(), date: $("pkDate").value,
+    make: $("pkMake").value.trim(), model: $("pkModel").value.trim(), colour: $("pkColour").value.trim(),
   };
   if (b.name.length < 2 || !isName(b.name)) { setPkMsg("Guest name should be letters only.", "err"); $("pkName").focus(); return; }
   if (!b.reg && !b.mobile) { setPkMsg("Enter a car registration or a mobile number.", "err"); $("pkReg").focus(); return; }
@@ -1446,7 +1442,6 @@ async function savePark() {
   if (b.make && !isWord(b.make)) { setPkMsg("Make should be letters, e.g. Toyota.", "err"); $("pkMake").focus(); return; }
   if (b.model && !isModel(b.model)) { setPkMsg("Model looks invalid, e.g. Corolla or XC40.", "err"); $("pkModel").focus(); return; }
   if (b.colour && !isWord(b.colour)) { setPkMsg("Colour should be letters, e.g. Silver.", "err"); $("pkColour").focus(); return; }
-  if (!b.date) { setPkMsg("Pick a date.", "err"); $("pkDate").focus(); return; }
   setPkMsg("Saving\u2026", "busy"); $("pkSave").disabled = true;
   try {
     const r = await api("/api/parking-entry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
