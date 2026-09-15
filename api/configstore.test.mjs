@@ -44,14 +44,23 @@ test("ignores non-string entries and bad types", async () => {
   assert.deepEqual(c.guestSheets, ["A", "B"]);
 });
 
-test("stores only validated public transport topics and names", async () => {
+test("stores only validated public transport card fields", async () => {
   const saved = await setTransportItem("sat-1730", {
+    time: " 17:30 ",
     topic: "  Star pickup  ",
+    note: " Airbnb to venue ",
     names: [" Dibakar ", 42, "Mayukh", ""],
+    backupNames: [" Arunavo ", null, "Suprakash da"],
   });
-  assert.deepEqual(saved, { id: "sat-1730", topic: "Star pickup", names: ["Dibakar", "Mayukh"] });
+  assert.deepEqual(saved, {
+    id: "sat-1730", topic: "Star pickup", names: ["Dibakar", "Mayukh"],
+    time: "17:30", note: "Airbnb to venue", backupNames: ["Arunavo", "Suprakash da"],
+  });
   _resetCache();
-  assert.deepEqual((await getConfig()).transport["sat-1730"], { topic: "Star pickup", names: ["Dibakar", "Mayukh"] });
+  assert.deepEqual((await getConfig()).transport["sat-1730"], {
+    topic: "Star pickup", names: ["Dibakar", "Mayukh"], time: "17:30",
+    note: "Airbnb to venue", backupNames: ["Arunavo", "Suprakash da"],
+  });
   await assert.rejects(() => setTransportItem("../bad", { topic: "No", names: [] }));
   await assert.rejects(() => setTransportItem("sat-1730", { topic: "", names: [] }));
 });

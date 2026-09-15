@@ -10,7 +10,7 @@ that reads or changes workbook or configuration data is independently authorized
 The three `Transport & Logistics` views are deliberately public. Anonymous navigation to them:
 
 - loads Star Schedule and Food Pickup from static frontend content;
-- calls only `GET /api/public/transport` for Pickup / Drop Plan topic/name overrides;
+- calls only `GET /api/public/transport` for validated Pickup / Drop Plan card overrides;
 - does not create, restore, or receive an application session;
 - does not load workbook data; and
 - does not bypass the login gate on any other module.
@@ -27,7 +27,8 @@ as authorization for an operational API-backed view.
 - Application sessions are issuer-bound, expire after 12 hours, and accept HS256 only.
 - All workbook, guest, configuration, food, parking, and walk-in routes use `requireAuth()`;
   administrative routes additionally require the `admin` role.
-- `GET /api/public/transport` returns only public topic/name overrides. Its corresponding write
+- `GET /api/public/transport` returns only public card fields: time/meal, topic, location/note,
+  assigned people, and backup people. Its corresponding write
   route requires the `admin` role and validates IDs, lengths, types, and item counts.
 - CORS permits only configured exact origins and permits no origin when configuration is absent.
   CORS is browser isolation and defense in depth, not authentication.

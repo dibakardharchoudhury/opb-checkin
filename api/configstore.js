@@ -26,7 +26,15 @@ function normalizeTransportItem(item) {
   const names = Array.isArray(item.names)
     ? item.names.filter((name) => typeof name === "string").map((name) => name.trim().slice(0, 60)).filter(Boolean).slice(0, 12)
     : [];
-  return topic ? { topic, names } : null;
+  const backupNames = Array.isArray(item.backupNames)
+    ? item.backupNames.filter((name) => typeof name === "string").map((name) => name.trim().slice(0, 60)).filter(Boolean).slice(0, 12)
+    : [];
+  if (!topic) return null;
+  const normalized = { topic, names };
+  if (typeof item.time === "string") normalized.time = item.time.trim().slice(0, 30);
+  if (typeof item.note === "string") normalized.note = item.note.trim().slice(0, 240);
+  if (Array.isArray(item.backupNames)) normalized.backupNames = backupNames;
+  return normalized;
 }
 
 function normalizeTransport(value) {

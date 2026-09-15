@@ -63,10 +63,10 @@ test("transport labels are public, user writes are forbidden, and admin updates 
   const adminToken = await issueSession({ email: "admin@opb.no", name: "Admin", role: "admin" });
   const saved = await fetch(`${base}/api/public/transport`, {
     method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
-    body: JSON.stringify({ id: "sat-1730", topic: "Changed", names: ["Lead", "Driver"] }),
+    body: JSON.stringify({ id: "sat-1730", time: "17:45", topic: "Changed", note: "Airbnb to venue", names: ["Lead", "Driver"], backupNames: ["Backup"] }),
   });
   assert.equal(saved.status, 200);
-  assert.deepEqual(await saved.json(), { id: "sat-1730", topic: "Changed", names: ["Lead", "Driver"] });
+  assert.deepEqual(await saved.json(), { id: "sat-1730", topic: "Changed", names: ["Lead", "Driver"], time: "17:45", note: "Airbnb to venue", backupNames: ["Backup"] });
   const visible = await (await fetch(`${base}/api/public/transport`)).json();
-  assert.deepEqual(visible.items["sat-1730"], { topic: "Changed", names: ["Lead", "Driver"] });
+  assert.deepEqual(visible.items["sat-1730"], { topic: "Changed", names: ["Lead", "Driver"], time: "17:45", note: "Airbnb to venue", backupNames: ["Backup"] });
 });

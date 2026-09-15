@@ -1115,10 +1115,16 @@
 <div id="transportEditor" class="transport-editor" hidden>
   <div class="transport-editor-card" role="dialog" aria-modal="true" aria-labelledby="transportEditorTitle">
     <h2 id="transportEditorTitle">Edit transport item</h2>
+    <label for="transportTime">Time / meal</label>
+    <input id="transportTime" maxlength="30" autocomplete="off" />
     <label for="transportTopic">Topic</label>
     <input id="transportTopic" maxlength="120" autocomplete="off" />
-    <label for="transportNames">Names</label>
-    <input id="transportNames" maxlength="720" autocomplete="off" placeholder="Lead first, then other names" />
+    <label for="transportNote">Location / note</label>
+    <input id="transportNote" maxlength="240" autocomplete="off" placeholder="Optional" />
+    <label for="transportNames">Assigned people</label>
+    <input id="transportNames" maxlength="720" autocomplete="off" placeholder="Lead first, then other names, separated by commas" />
+    <label for="transportBackupNames">Backup people</label>
+    <input id="transportBackupNames" maxlength="720" autocomplete="off" placeholder="Optional, separated by commas" />
     <div id="transportEditorError" class="transport-editor-error"></div>
     <div class="transport-editor-actions">
       <button id="transportCancel" class="secondary" type="button">Cancel</button>
@@ -1136,8 +1142,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.72"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-09-15T19:23:10Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.73"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-09-15T19:45:49Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -2053,10 +2059,15 @@ document.querySelectorAll(".transport-item[data-transport-id]").forEach((article
   const id = article.dataset.transportId;
   const names = [...article.querySelectorAll(".transport-person")].map((el) => el.textContent.trim());
   const backup = article.querySelector(".transport-backup");
-  if (backup) names.push(...backup.textContent.replace(/^Backup:\s*/i, "").split("/").map((name) => name.trim()).filter(Boolean));
-  transportItems[id] = { topic: article.querySelector(".transport-title").textContent.trim(), names };
+  const backupNames = backup ? backup.textContent.replace(/^Backup:\s*/i, "").split("/").map((name) => name.trim()).filter(Boolean) : [];
+  transportItems[id] = {
+    time: article.querySelector(".transport-time").textContent.trim(),
+    topic: article.querySelector(".transport-title").textContent.trim(),
+    note: article.querySelector(".transport-note")?.textContent.trim() || "",
+    names, backupNames,
+  };
   const button = document.createElement("button");
-  button.className = "transport-edit"; button.type = "button"; button.title = "Edit topic and names"; button.setAttribute("aria-label", "Edit topic and names");
+  button.className = "transport-edit"; button.type = "button"; button.title = "Edit card details"; button.setAttribute("aria-label", "Edit card details");
   button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>';
   article.querySelector(".transport-card").appendChild(button);
 });
@@ -2064,12 +2075,20 @@ document.querySelectorAll(".transport-item[data-transport-id]").forEach((article
 function renderTransportItem(id) {
   const article = document.querySelector(`[data-transport-id="${id}"]`), item = transportItems[id];
   if (!article || !item) return;
+  article.querySelector(".transport-time").textContent = item.time;
   article.querySelector(".transport-title").textContent = item.topic;
+  let note = article.querySelector(".transport-note");
+  if (!note && item.note) {
+    note = document.createElement("p"); note.className = "transport-note";
+    article.querySelector(".transport-title").insertAdjacentElement("afterend", note);
+  }
+  if (note) { note.textContent = item.note; note.hidden = !item.note; }
   let team = article.querySelector(".transport-team");
-  if (!team && item.names.length) { team = document.createElement("div"); team.className = "transport-team"; article.querySelector(".transport-card").appendChild(team); }
+  if (!team && (item.names.length || item.backupNames.length)) { team = document.createElement("div"); team.className = "transport-team"; article.querySelector(".transport-card").appendChild(team); }
   if (team) {
-    team.innerHTML = item.names.map((name, index) => '<span class="transport-person' + (index === 0 ? " lead" : "") + '">' + esc(name) + "</span>").join("");
-    team.hidden = item.names.length === 0;
+    team.innerHTML = item.names.map((name, index) => '<span class="transport-person' + (index === 0 ? " lead" : "") + '">' + esc(name) + "</span>").join("")
+      + (item.backupNames.length ? '<div class="transport-backup"><b>Backup:</b> ' + item.backupNames.map(esc).join(" / ") + "</div>" : "");
+    team.hidden = item.names.length === 0 && item.backupNames.length === 0;
   }
 }
 
@@ -2080,7 +2099,14 @@ async function loadTransport() {
     if (!response.ok || !body.items) return;
     Object.entries(body.items).forEach(([id, item]) => {
       if (!transportItems[id] || !item || typeof item.topic !== "string" || !Array.isArray(item.names)) return;
-      transportItems[id] = { topic: item.topic, names: item.names };
+      const current = transportItems[id];
+      transportItems[id] = {
+        time: typeof item.time === "string" ? item.time : current.time,
+        topic: item.topic,
+        note: typeof item.note === "string" ? item.note : current.note,
+        names: item.names,
+        backupNames: Array.isArray(item.backupNames) ? item.backupNames : current.backupNames,
+      };
       renderTransportItem(id);
     });
   } catch {}
@@ -2091,8 +2117,11 @@ function openTransportEditor(article) {
   if (!isAdmin() || !article) return;
   editingTransportId = article.dataset.transportId;
   const item = transportItems[editingTransportId];
+  $("transportTime").value = item.time;
   $("transportTopic").value = item.topic;
+  $("transportNote").value = item.note;
   $("transportNames").value = item.names.join(", ");
+  $("transportBackupNames").value = item.backupNames.join(", ");
   $("transportEditorError").textContent = "";
   $("transportEditor").hidden = false;
   $("transportTopic").focus();
@@ -2101,15 +2130,18 @@ function closeTransportEditor() { $("transportEditor").hidden = true; editingTra
 $("transportCancel").onclick = closeTransportEditor;
 $("transportEditor").addEventListener("click", (event) => { if (event.target === $("transportEditor")) closeTransportEditor(); });
 $("transportSave").onclick = async () => {
+  const time = $("transportTime").value.trim();
   const topic = $("transportTopic").value.trim();
+  const note = $("transportNote").value.trim();
   const names = $("transportNames").value.split(",").map((name) => name.trim()).filter(Boolean);
+  const backupNames = $("transportBackupNames").value.split(",").map((name) => name.trim()).filter(Boolean);
   if (!topic) { $("transportEditorError").textContent = "Topic is required."; return; }
   $("transportSave").disabled = true; $("transportEditorError").textContent = "";
   try {
-    const response = await api("/api/public/transport", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ id:editingTransportId, topic, names }) });
+    const response = await api("/api/public/transport", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ id:editingTransportId, time, topic, note, names, backupNames }) });
     const body = await response.json();
     if (!response.ok) throw new Error(body.error || "Could not save.");
-    transportItems[editingTransportId] = { topic:body.topic, names:body.names };
+    transportItems[editingTransportId] = { time:body.time, topic:body.topic, note:body.note, names:body.names, backupNames:body.backupNames };
     renderTransportItem(editingTransportId); closeTransportEditor(); toast("Transport item updated.");
   } catch (error) { $("transportEditorError").textContent = error.message || "Could not save."; }
   finally { $("transportSave").disabled = false; }

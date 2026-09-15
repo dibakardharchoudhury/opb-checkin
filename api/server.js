@@ -111,9 +111,12 @@ app.get("/api/public/transport", async (_req, res) => {
   catch (e) { console.error("transport load failed:", e?.message || e); res.status(500).json({ error: "Could not load transport details." }); }
 });
 app.post("/api/public/transport", requireAuth("admin"), async (req, res) => {
-  try { res.json(await setTransportItem(String(req.body?.id || ""), { topic: req.body?.topic, names: req.body?.names })); }
+  try { res.json(await setTransportItem(String(req.body?.id || ""), {
+    time: req.body?.time, topic: req.body?.topic, note: req.body?.note,
+    names: req.body?.names, backupNames: req.body?.backupNames,
+  })); }
   catch (e) {
-    if (/^invalid transport/.test(e?.message || "")) return res.status(400).json({ error: "Enter a valid topic and names." });
+    if (/^invalid transport/.test(e?.message || "")) return res.status(400).json({ error: "Enter valid transport card details." });
     console.error("transport save failed:", e?.message || e);
     res.status(500).json({ error: "Could not save transport details." });
   }
