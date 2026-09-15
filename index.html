@@ -25,12 +25,13 @@
     background:
       radial-gradient(1200px 520px at 100% -12%, rgba(200,162,76,.12), transparent 60%),
       linear-gradient(180deg,#faf6ef,var(--cream));
-    min-height:100dvh; display:flex; position:relative;
+    min-height:100dvh; display:flex; position:relative; isolation:isolate;
   }
   body::before, body::after { content:""; position:fixed; z-index:0; pointer-events:none;
     background:url("mandala.svg") center/contain no-repeat; }
   body::before { top:-120px; right:-120px; width:420px; height:420px; opacity:.04; }
-  body::after { content:none; }
+  body::after { left:248px; right:0; bottom:0; height:min(34vh,300px); opacity:.045;
+    background:url("howrah.svg") center bottom/cover no-repeat; filter:sepia(1) saturate(1.4); }
   .serif { font-family:"Cormorant Garamond",Georgia,serif; }
 
   /* ---- slim gold accent strip ---- */
@@ -43,29 +44,34 @@
   aside {
     width:248px; flex:0 0 248px; color:var(--gold-2);
     background:
-      radial-gradient(140px 140px at 50% 0, rgba(244,207,130,.16), transparent 70%),
-      linear-gradient(180deg, var(--maroon) 0%, var(--maroon-2) 100%);
+      linear-gradient(135deg,rgba(255,255,255,.045),transparent 32%),
+      radial-gradient(180px 180px at 50% 0,rgba(244,207,130,.15),transparent 72%),
+      linear-gradient(168deg,#78182d 0%,var(--maroon) 42%,#430b19 100%);
     display:flex; flex-direction:column; position:relative; z-index:30;
-    box-shadow:6px 0 26px rgba(74,8,16,.28);
+    border-right:1px solid rgba(230,208,154,.2); box-shadow:10px 0 36px rgba(74,8,16,.2); overflow:hidden;
   }
-  .brand { padding:22px 18px 14px; text-align:center; }
-  .brand-logo { width:88px; height:88px; margin:2px auto 12px; display:block; border-radius:50%; box-shadow:0 6px 18px rgba(0,0,0,.28); }
-  .brand h1 { font-family:"Cormorant Garamond",serif; font-weight:700; font-size:28px; margin:2px 0 0; color:#fff; letter-spacing:.4px; }
-  .brand .sub { font-size:11.5px; letter-spacing:3px; text-transform:uppercase; color:var(--gold-2); opacity:.85; }
-  .nav { padding:10px; display:flex; flex-direction:column; gap:4px; flex:1; }
+  aside::before { content:""; position:absolute; inset:0; pointer-events:none; opacity:.22;
+    background:linear-gradient(120deg,transparent 0 48%,rgba(230,208,154,.09) 48.2% 48.5%,transparent 48.7% 100%); }
+  .brand { position:relative; padding:24px 18px 18px; text-align:center; }
+  .brand::after { content:""; display:block; width:34px; height:1px; margin:17px auto 0; background:var(--gold); opacity:.8; }
+  .brand-logo { width:76px; height:76px; margin:0 auto 11px; display:block; border-radius:50%; border:1px solid rgba(230,208,154,.3); box-shadow:0 10px 30px rgba(0,0,0,.3),0 0 0 6px rgba(255,255,255,.025); }
+  .brand h1 { font-family:"Cormorant Garamond",serif; font-weight:700; font-size:26px; margin:2px 0 2px; color:#fff; letter-spacing:0; }
+  .brand .sub { font-size:10px; letter-spacing:2.4px; text-transform:uppercase; color:var(--gold-2); opacity:.82; }
+  .nav { position:relative; padding:7px 12px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
   .nav a {
-    display:flex; align-items:center; gap:13px; padding:12px 14px; border-radius:12px;
-    color:var(--gold-2); text-decoration:none; font-weight:500; font-size:14.5px; cursor:pointer;
-    border:1px solid transparent; transition:.18s;
+    min-height:48px; display:flex; align-items:center; gap:11px; padding:6px 10px 6px 7px; border-radius:8px;
+    color:rgba(246,229,188,.83); text-decoration:none; font-weight:600; font-size:13.5px; cursor:pointer;
+    border:1px solid transparent; transition:background .18s,border-color .18s,color .18s,transform .18s;
   }
-  .nav a svg { width:20px; height:20px; flex:0 0 20px; opacity:.9; }
+  .nav a svg { width:34px; height:34px; flex:0 0 34px; padding:7px; opacity:.88; border-radius:8px;
+    border:1px solid rgba(230,208,154,.16); background:rgba(255,255,255,.035); }
   .nav a .soon { margin-left:auto; font-size:9px; letter-spacing:1px; text-transform:uppercase;
     background:rgba(244,207,130,.16); color:var(--gold-2); padding:2px 6px; border-radius:20px; }
-  .nav a:hover { background:rgba(244,207,130,.08); }
-  .nav a.active { background:linear-gradient(90deg, rgba(244,207,130,.22), rgba(244,207,130,.06));
-    color:#fff; border-color:rgba(244,207,130,.45); box-shadow:inset 3px 0 0 var(--gold); }
-  .nav a.active svg { opacity:1; }
-  aside .foot { padding:14px 16px; font-size:11px; line-height:1.5; color:rgba(244,207,130,.7);
+  .nav a:hover { color:#fff; background:rgba(255,255,255,.055); transform:translateX(2px); }
+  .nav a.active { background:linear-gradient(100deg,rgba(244,207,130,.18),rgba(255,255,255,.055));
+    color:#fff; border-color:rgba(244,207,130,.34); box-shadow:0 8px 22px rgba(25,2,8,.18); }
+  .nav a.active svg { opacity:1; color:var(--maroon-2); border-color:var(--gold-2); background:linear-gradient(145deg,#f8e8bd,var(--gold)); box-shadow:0 5px 14px rgba(19,2,6,.24); }
+  aside .foot { position:relative; padding:14px 16px; font-size:10.5px; line-height:1.5; color:rgba(244,207,130,.68);
     border-top:1px solid rgba(244,207,130,.18); text-align:center; }
   aside .foot b { color:#fff; font-weight:600; }
 
@@ -75,7 +81,8 @@
 
   /* ---- main ---- */
   .stage { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; z-index:1; }
-  .topbar { display:flex; align-items:center; gap:12px; padding:16px 22px 10px; }
+  .topbar { position:sticky; top:3px; z-index:20; display:flex; align-items:center; gap:12px; padding:14px 22px 12px;
+    background:rgba(250,246,239,.86); border-bottom:1px solid rgba(200,162,76,.16); backdrop-filter:blur(14px); }
   .topbar .burger { display:none; background:none; border:0; color:var(--maroon); padding:6px; cursor:pointer; }
   .topbar .burger svg { width:26px; height:26px; }
   .topbar .titles { min-width:0; }
@@ -451,9 +458,14 @@
   .publicchip span { min-width:0; flex:1; color:var(--gold-2); font-size:11px; font-weight:600; line-height:1.3; }
   .publicchip button { white-space:nowrap; }
 
-  #login { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:22px;
+  #login { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:22px; overflow:hidden; isolation:isolate;
     background:radial-gradient(600px 300px at 50% 0, rgba(244,207,130,.16), transparent 60%),
       linear-gradient(180deg,var(--maroon),var(--maroon-2)); }
+  #login::before { content:""; position:absolute; left:-4%; right:-4%; bottom:-1%; height:min(38vh,320px); pointer-events:none;
+    background:url("howrah.svg") center bottom/cover no-repeat; opacity:.2;
+    filter:invert(85%) sepia(32%) saturate(765%) hue-rotate(356deg) brightness(93%); }
+  #login::after { content:""; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(180deg,rgba(81,16,33,.06) 30%,rgba(81,16,33,.58) 100%); }
   body.authed #login, body.public-view #login { display:none; }
   .loginCard { position:relative; background:linear-gradient(180deg,#fffdf8,var(--ivory));
     border:1px solid rgba(217,164,65,.6); border-radius:22px; padding:30px 24px 24px; max-width:390px;
@@ -476,7 +488,11 @@
     padding:12px; border-radius:24px; border:1.5px solid #dadce0; background:#fff; color:#3c4043;
     font:inherit; font-weight:600; font-size:14px; cursor:pointer; }
   .msbtn:hover { background:#f8f9fa; }
-  .login-public { border:0; background:transparent; color:var(--maroon); padding:8px 12px; font-size:12.5px; font-weight:700; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+  .login-public { min-height:42px; display:inline-flex; align-items:center; justify-content:center; gap:9px; margin-top:2px;
+    border:1px solid rgba(110,21,38,.22); border-radius:8px; background:rgba(110,21,38,.055); color:var(--maroon);
+    padding:9px 14px; font-size:12.5px; font-weight:700; cursor:pointer; box-shadow:none; }
+  .login-public svg { width:17px; height:17px; }
+  .login-public:hover { background:rgba(110,21,38,.1); border-color:rgba(110,21,38,.4); transform:none; box-shadow:none; }
   .loginErr { color:var(--err); font-size:13px; min-height:18px; margin-top:14px; }
   .loginNote { font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5; }
 
@@ -497,8 +513,10 @@
 
   @media (max-width:820px) {
     aside { position:fixed; inset:0 auto 0 0; transform:translateX(-100%); transition:transform .22s ease; }
+    body::after { left:0; }
     body.nav-open aside { transform:none; }
     body.nav-open #scrim { opacity:1; pointer-events:auto; }
+    body.nav-open .ver-badge { opacity:0; pointer-events:none; }
     .topbar .burger { display:inline-flex; }
     .topbar .event { font-size:19px; }
   }
@@ -933,7 +951,11 @@
         Continue with Microsoft
       </button>
     </div>
-    <button id="viewPublic" class="login-public" type="button">View Transport &amp; Logistics without signing in</button>
+    <button id="viewPublic" class="login-public" type="button" title="Open without signing in">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17h4V5H2v12h3"/><path d="M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>
+      Public transport
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
     <div class="loginErr" id="loginErr"></div>
     <div class="loginNote">Access is limited to approved OPB volunteers.</div>
   </div>
@@ -973,8 +995,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.68"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-09-15T16:17:36Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.69"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-09-15T16:51:37Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
