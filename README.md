@@ -65,8 +65,10 @@ for the threat model, verified controls, and residual operational-privacy risk.
 Set up (all free, no admin):
 1. **Google** — Google Cloud Console → *APIs & Services → Credentials → OAuth client ID*
    (type *Web*); add your Pages URL as an authorized JavaScript origin. Copy the client ID.
-2. **Microsoft** — an app registration (personal accounts) with a **SPA** redirect URI =
-   your Pages URL. Copy the client ID. (Can be a separate registration from the Graph one.)
+2. **Microsoft** — an app registration (personal accounts) with the **SPA** redirect URI
+   `https://dibakardharchoudhury.github.io/opb-checkin/auth-callback.html`. The dedicated inert
+   callback prevents the application's route hash from overwriting the OAuth response on mobile.
+   Copy the client ID. (This can be a separate registration from the Graph one.)
 3. Put both IDs in `webapp/index.html` → `AUTH_CFG`. Set the allowlist + IDs on the backend:
    ```powershell
    az webapp config appsettings set -n opb-checkin-api -g rg-opb-checkin --settings `
