@@ -182,6 +182,12 @@
     border-radius:12px; background:var(--ivory); color:var(--maroon); text-align:center; }
   .transport-count b { display:block; font-family:"Cormorant Garamond",serif; font-size:26px; line-height:1; }
   .transport-count span { display:block; margin-top:4px; color:var(--muted); font-size:9.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+  .transport-days { display:flex; flex-direction:column; gap:24px; }
+  .transport-day { min-width:0; }
+  .transport-day-header { display:flex; align-items:baseline; gap:12px; margin:0 0 10px 52px; color:var(--maroon); }
+  .transport-day-header::after { content:""; height:1px; flex:1; background:linear-gradient(90deg,rgba(217,164,65,.65),transparent); }
+  .transport-weekday { font-family:"Cormorant Garamond",serif; font-size:21px; font-weight:700; line-height:1; }
+  .transport-day-header time { order:2; font-size:11px; font-weight:700; letter-spacing:.45px; text-transform:uppercase; white-space:nowrap; }
   .transport-list { position:relative; display:flex; flex-direction:column; gap:12px; }
   .transport-list::before { content:""; position:absolute; top:24px; bottom:24px; left:19px; width:2px;
     background:linear-gradient(180deg,var(--gold),rgba(217,164,65,.18)); }
@@ -193,7 +199,6 @@
   .transport-card { background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:16px;
     padding:14px 16px; box-shadow:0 5px 18px rgba(122,18,32,.07); }
   .transport-when { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-bottom:7px; }
-  .transport-date { color:var(--maroon); font-size:12px; font-weight:700; letter-spacing:.35px; text-transform:uppercase; }
   .transport-time { padding:3px 8px; border-radius:999px; background:rgba(217,164,65,.18); color:#74570f;
     font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; }
   .transport-title { margin:0; color:var(--ink); font-family:"Cormorant Garamond",serif; font-size:21px; font-weight:700; line-height:1.2; }
@@ -474,6 +479,9 @@
   }
   @media (max-width:480px) {
     .transport-intro { align-items:center; }
+    .transport-days { gap:20px; }
+    .transport-day-header { margin-left:43px; }
+    .transport-weekday { font-size:19px; }
     .transport-item { grid-template-columns:34px minmax(0,1fr); gap:9px; }
     .transport-list::before { left:16px; }
     .transport-marker { width:34px; height:34px; }
@@ -720,76 +728,106 @@
         </div>
         <div class="transport-count"><b>8</b><span>Movements</span></div>
       </div>
-      <div class="transport-list">
-        <article class="transport-item">
+      <div class="transport-days">
+        <section class="transport-day" aria-labelledby="transport-wed">
+          <h2 class="transport-day-header" id="transport-wed"><span class="transport-weekday">Wednesday</span><time datetime="2026-10-14">14 Oct</time></h2>
+          <div class="transport-list">
+            <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
-            <div class="transport-when"><span class="transport-date">Wednesday 14 Oct</span><span class="transport-time">10:55</span></div>
+            <div class="transport-when"><span class="transport-time">10:55</span></div>
             <h3 class="transport-title">Star #2 pickup</h3>
             <p class="transport-note">Oslo Airport</p>
             <div class="transport-team"><span class="transport-person lead">Dibakar</span></div>
           </div>
-        </article>
-        <article class="transport-item">
+            </article>
+          </div>
+        </section>
+        <section class="transport-day" aria-labelledby="transport-thu">
+          <h2 class="transport-day-header" id="transport-thu"><span class="transport-weekday">Thursday</span><time datetime="2026-10-15">15 Oct</time></h2>
+          <div class="transport-list">
+            <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
-            <div class="transport-when"><span class="transport-date">Thursday 15 Oct</span><span class="transport-time">16:00</span></div>
+            <div class="transport-when"><span class="transport-time">16:00</span></div>
             <h3 class="transport-title">Thakur transport</h3>
             <p class="transport-note">From L&oslash;renskog</p>
             <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Mayukh</span><span class="transport-person">Saikat</span><span class="transport-person">Prasenjit</span><span class="transport-person">Anirban Singha Ray</span></div>
           </div>
-        </article>
-        <article class="transport-item">
+            </article>
+          </div>
+        </section>
+        <section class="transport-day" aria-labelledby="transport-fri">
+          <h2 class="transport-day-header" id="transport-fri"><span class="transport-weekday">Friday</span><time datetime="2026-10-16">16 Oct</time></h2>
+          <div class="transport-list">
+            <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
-            <div class="transport-when"><span class="transport-date">Friday 16 Oct</span><span class="transport-time">00:15</span></div>
+            <div class="transport-when"><span class="transport-time">00:15</span></div>
             <h3 class="transport-title">Star #1 pickup</h3>
             <p class="transport-note">Oslo Airport &middot; overnight from Thursday 15 October</p>
             <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Dibakar</span></div>
           </div>
-        </article>
-        <article class="transport-item">
+            </article>
+            <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div class="transport-card">
-            <div class="transport-when"><span class="transport-date">Friday 16 Oct</span><span class="transport-time">Lunch</span></div>
+            <div class="transport-when"><span class="transport-time">Lunch</span></div>
             <h3 class="transport-title">Star lunch, pickup &amp; drop</h3>
             <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Dibakar</span></div>
           </div>
-        </article>
-        <article class="transport-item">
+            </article>
+          </div>
+        </section>
+        <section class="transport-day" aria-labelledby="transport-sat">
+          <h2 class="transport-day-header" id="transport-sat"><span class="transport-weekday">Saturday</span><time datetime="2026-10-17">17 Oct</time></h2>
+          <div class="transport-list">
+            <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
-            <div class="transport-when"><span class="transport-date">Saturday 17 Oct</span><span class="transport-time">04:15</span></div>
+            <div class="transport-when"><span class="transport-time">04:15</span></div>
             <h3 class="transport-title">Star #1 airport drop-off</h3>
             <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Suprakash da</span><div class="transport-backup"><b>Backup:</b> Mayukh / Dibakar</div></div>
           </div>
-        </article>
-        <article class="transport-item">
+            </article>
+            <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div class="transport-card">
-            <div class="transport-when"><span class="transport-date">Saturday 17 Oct</span><span class="transport-time">10:00</span></div>
+            <div class="transport-when"><span class="transport-time">10:00</span></div>
             <h3 class="transport-title">Drum kit and equipment drop-off</h3>
             <p class="transport-note">Oslo</p>
             <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Sandeep</span></div>
           </div>
-        </article>
-        <article class="transport-item">
+            </article>
+          </div>
+        </section>
+        <section class="transport-day" aria-labelledby="transport-sun">
+          <h2 class="transport-day-header" id="transport-sun"><span class="transport-weekday">Sunday</span><time datetime="2026-10-18">18 Oct</time></h2>
+          <div class="transport-list">
+            <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
-            <div class="transport-when"><span class="transport-date">Sunday 18 Oct</span><span class="transport-time">09:30</span></div>
+            <div class="transport-when"><span class="transport-time">09:30</span></div>
             <h3 class="transport-title">Star #2 airport drop-off</h3>
             <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Suprakash da</span><div class="transport-backup"><b>Backup:</b> Mayukh / Dibakar</div></div>
           </div>
-        </article>
-        <article class="transport-item">
+            </article>
+          </div>
+        </section>
+        <section class="transport-day" aria-labelledby="transport-mon">
+          <h2 class="transport-day-header" id="transport-mon"><span class="transport-weekday">Monday</span><time datetime="2026-10-19">19 Oct</time></h2>
+          <div class="transport-list">
+            <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div class="transport-card">
-            <div class="transport-when"><span class="transport-date">Monday 19 Oct</span><span class="transport-time">18:00</span></div>
+            <div class="transport-when"><span class="transport-time">18:00</span></div>
             <h3 class="transport-title">Thakur transport</h3>
             <p class="transport-note">From Fornebu</p>
             <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Mayukh</span><span class="transport-person">Saikat</span><span class="transport-person">Ankit Gadia</span><span class="transport-person">Anirban Singha Ray</span></div>
           </div>
-        </article>
+            </article>
+          </div>
+        </section>
       </div>
     </section>
     <section class="view" data-view="settings">
