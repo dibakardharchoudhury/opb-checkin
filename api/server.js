@@ -21,7 +21,7 @@ import {
 import { evaluateScan, nowInZone, normalizeCutoff, normalizeEventDate, passDateYMD } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
 import { listStoredUsers, upsertUser, removeUser } from "./userstore.js";
-import { getConfig, setConfig } from "./configstore.js";
+import { getConfig, setConfig, setTransportItem } from "./configstore.js";
 
 const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
@@ -103,6 +103,21 @@ const scanLimiter = rateLimit({ windowMs: 60_000, max: 60, ...rlOpts });
 const authLimiter = rateLimit({ windowMs: 60_000, max: 15, skipSuccessfulRequests: true, ...rlOpts });
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// Public transport labels contain only content already shown on the anonymous page.
+// Writes remain admin-only; this endpoint does not expose the rest of app config.
+app.get("/api/public/transport", async (_req, res) => {
+  try { res.json({ items: (await getConfig()).transport || {} }); }
+  catch (e) { console.error("transport load failed:", e?.message || e); res.status(500).json({ error: "Could not load transport details." }); }
+});
+app.post("/api/public/transport", requireAuth("admin"), async (req, res) => {
+  try { res.json(await setTransportItem(String(req.body?.id || ""), { topic: req.body?.topic, names: req.body?.names })); }
+  catch (e) {
+    if (/^invalid transport/.test(e?.message || "")) return res.status(400).json({ error: "Enter a valid topic and names." });
+    console.error("transport save failed:", e?.message || e);
+    res.status(500).json({ error: "Could not save transport details." });
+  }
+});
 
 // POST /api/auth { provider, credential } -> { token, name, role, email }
 // Verifies the Google/Microsoft ID token, checks the email allowlist, issues a session.

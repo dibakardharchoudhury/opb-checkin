@@ -184,12 +184,13 @@
   .transport-count span { display:block; margin-top:4px; color:var(--muted); font-size:9.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
   .transport-days { display:flex; flex-direction:column; gap:24px; }
   .transport-day { min-width:0; }
-  .transport-day-header { margin:0 0 10px 52px; }
-  .transport-day-toggle { width:100%; display:flex; align-items:center; gap:10px; padding:3px 0; border:0; background:transparent; color:var(--maroon); cursor:pointer; text-align:left; }
-  .transport-day-toggle::after { content:""; height:1px; flex:1; background:linear-gradient(90deg,rgba(217,164,65,.65),transparent); }
-  .transport-day-toggle:focus-visible { outline:2px solid var(--gold); outline-offset:4px; border-radius:4px; }
-  .transport-weekday { font-family:"Cormorant Garamond",serif; font-size:21px; font-weight:700; line-height:1; }
-  .transport-day-toggle time { font-size:11px; font-weight:700; letter-spacing:.45px; text-transform:uppercase; white-space:nowrap; }
+  .transport-day-header { margin:0 0 12px 52px; }
+  .transport-day-toggle { width:100%; display:grid; grid-template-columns:auto auto auto 1fr; align-items:center; gap:10px; padding:7px 0 7px 13px; border:0; border-left:3px solid var(--gold); border-radius:0; background:transparent; box-shadow:none; color:var(--maroon); cursor:pointer; text-align:left; }
+  .transport-day-toggle::after { content:""; height:1px; min-width:18px; background:linear-gradient(90deg,rgba(217,164,65,.72),rgba(217,164,65,.08)); }
+  .transport-day-toggle:hover { background:linear-gradient(90deg,rgba(217,164,65,.09),transparent 58%); transform:none; box-shadow:none; }
+  .transport-day-toggle:focus-visible { outline:2px solid var(--gold); outline-offset:3px; }
+  .transport-weekday { font-family:"Cormorant Garamond",serif; font-size:22px; font-weight:700; line-height:1; }
+  .transport-day-toggle time { color:var(--muted); font-size:10px; font-weight:700; letter-spacing:0; text-transform:uppercase; white-space:nowrap; }
   .transport-chevron { width:16px; height:16px; flex:0 0 16px; transition:transform .18s ease; }
   .transport-day-toggle[aria-expanded="false"] .transport-chevron { transform:rotate(-90deg); }
   .transport-list { position:relative; display:flex; flex-direction:column; gap:12px; }
@@ -201,7 +202,7 @@
     border-radius:50%; color:#fff; background:linear-gradient(150deg,var(--maroon),var(--maroon-2));
     border:3px solid var(--cream); box-shadow:0 0 0 1px var(--gold); }
   .transport-marker svg { width:18px; height:18px; }
-  .transport-card { background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:16px;
+  .transport-card { position:relative; background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:16px;
     padding:14px 16px; box-shadow:0 5px 18px rgba(122,18,32,.07); }
   .transport-when { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-bottom:7px; }
   .transport-time { padding:3px 8px; border-radius:999px; background:rgba(217,164,65,.18); color:#74570f;
@@ -216,6 +217,20 @@
   .transport-person.lead::after { content:"Lead"; margin-left:6px; padding-left:6px; border-left:1px solid rgba(255,255,255,.4);
     font-size:8.5px; font-weight:700; letter-spacing:.55px; text-transform:uppercase; }
   .transport-backup { width:100%; margin-top:2px; color:var(--muted); font-size:11.5px; }
+  .transport-edit { display:none; position:absolute; top:10px; right:10px; width:32px; height:32px; padding:0; border:1px solid rgba(110,21,38,.22); border-radius:50%; background:rgba(255,255,255,.92); box-shadow:none; color:var(--maroon); place-items:center; }
+  .transport-edit svg { width:15px; height:15px; }
+  .transport-edit:hover { background:#fff; border-color:var(--maroon); transform:none; box-shadow:none; }
+  body.is-admin .transport-edit { display:grid; }
+  body.is-admin .transport-card { padding-right:52px; }
+  .transport-editor { position:fixed; inset:0; z-index:1100; display:grid; place-items:center; padding:20px; background:rgba(38,20,18,.48); backdrop-filter:blur(3px); }
+  .transport-editor[hidden] { display:none; }
+  .transport-editor-card { width:min(440px,100%); padding:22px; border:1px solid rgba(217,164,65,.65); border-radius:8px; background:var(--ivory); box-shadow:0 20px 55px rgba(52,20,21,.25); }
+  .transport-editor-card h2 { margin:0 0 18px; color:var(--maroon); font-family:"Cormorant Garamond",serif; font-size:25px; }
+  .transport-editor-card label { display:block; margin:12px 0 6px; color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; }
+  .transport-editor-card input { width:100%; }
+  .transport-editor-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:18px; }
+  .transport-editor-actions .secondary { background:transparent; box-shadow:none; color:var(--maroon); }
+  .transport-editor-error { min-height:18px; margin-top:8px; color:var(--danger); font-size:12px; }
   /* ---- parking / food entry forms ---- */
   .entryform .frow { margin-bottom:12px; }
   .entryform .frow2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
@@ -746,7 +761,7 @@
         <section class="transport-day" aria-labelledby="transport-wed">
           <h2 class="transport-day-header" id="transport-wed"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-wed-list"><span class="transport-weekday">Wednesday</span><time datetime="2026-10-14">14 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
           <div class="transport-list" id="transport-wed-list">
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="wed-1055">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">10:55</span></div>
@@ -760,7 +775,7 @@
         <section class="transport-day" aria-labelledby="transport-thu">
           <h2 class="transport-day-header" id="transport-thu"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-thu-list"><span class="transport-weekday">Thursday</span><time datetime="2026-10-15">15 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
           <div class="transport-list" id="transport-thu-list">
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="thu-1600">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">16:00</span></div>
@@ -774,7 +789,7 @@
         <section class="transport-day" aria-labelledby="transport-fri">
           <h2 class="transport-day-header" id="transport-fri"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-fri-list"><span class="transport-weekday">Friday</span><time datetime="2026-10-16">16 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
           <div class="transport-list" id="transport-fri-list">
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="fri-0015">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">00:15</span></div>
@@ -783,7 +798,7 @@
             <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Dibakar</span></div>
           </div>
             </article>
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="fri-lunch">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">Lunch</span></div>
@@ -796,7 +811,7 @@
         <section class="transport-day" aria-labelledby="transport-sat">
           <h2 class="transport-day-header" id="transport-sat"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-sat-list"><span class="transport-weekday">Saturday</span><time datetime="2026-10-17">17 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
           <div class="transport-list" id="transport-sat-list">
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="sat-0415">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">04:15</span></div>
@@ -804,7 +819,7 @@
             <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Suprakash da</span><div class="transport-backup"><b>Backup:</b> Mayukh / Dibakar</div></div>
           </div>
             </article>
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="sat-1000">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">10:00</span></div>
@@ -813,7 +828,7 @@
             <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Sandeep</span></div>
           </div>
             </article>
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="sat-1730">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">17:30</span></div>
@@ -826,7 +841,7 @@
         <section class="transport-day" aria-labelledby="transport-sun">
           <h2 class="transport-day-header" id="transport-sun"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-sun-list"><span class="transport-weekday">Sunday</span><time datetime="2026-10-18">18 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
           <div class="transport-list" id="transport-sun-list">
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="sun-0930">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">09:30</span></div>
@@ -839,7 +854,7 @@
         <section class="transport-day" aria-labelledby="transport-mon">
           <h2 class="transport-day-header" id="transport-mon"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-mon-list"><span class="transport-weekday">Monday</span><time datetime="2026-10-19">19 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
           <div class="transport-list" id="transport-mon-list">
-            <article class="transport-item">
+            <article class="transport-item" data-transport-id="mon-1800">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div class="transport-card">
             <div class="transport-when"><span class="transport-time">18:00</span></div>
@@ -934,6 +949,21 @@
   </div>
 </div>
 
+<div id="transportEditor" class="transport-editor" hidden>
+  <div class="transport-editor-card" role="dialog" aria-modal="true" aria-labelledby="transportEditorTitle">
+    <h2 id="transportEditorTitle">Edit transport item</h2>
+    <label for="transportTopic">Topic</label>
+    <input id="transportTopic" maxlength="120" autocomplete="off" />
+    <label for="transportNames">Names</label>
+    <input id="transportNames" maxlength="720" autocomplete="off" placeholder="Lead first, then other names" />
+    <div id="transportEditorError" class="transport-editor-error"></div>
+    <div class="transport-editor-actions">
+      <button id="transportCancel" class="secondary" type="button">Cancel</button>
+      <button id="transportSave" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="ver-badge checking" id="verBadge" role="status" aria-live="polite" title="App build"><span class="ver-dot"></span><span id="verText">…</span></div>
 
 <script>
@@ -943,8 +973,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.67"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-09-15T15:50:38Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.68"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-09-15T16:17:36Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1846,12 +1876,81 @@ document.getElementById("nav").addEventListener("click", (e) => {
   e.preventDefault(); showView(a.dataset.view);
 });
 document.querySelector(".transport-days").addEventListener("click", (e) => {
+  const edit = e.target.closest(".transport-edit");
+  if (edit) { openTransportEditor(edit.closest(".transport-item")); return; }
   const toggle = e.target.closest(".transport-day-toggle"); if (!toggle) return;
   const list = $(toggle.getAttribute("aria-controls")); if (!list) return;
   const expanded = toggle.getAttribute("aria-expanded") === "true";
   toggle.setAttribute("aria-expanded", String(!expanded));
   list.hidden = expanded;
 });
+
+const transportItems = {};
+document.querySelectorAll(".transport-item[data-transport-id]").forEach((article) => {
+  const id = article.dataset.transportId;
+  const names = [...article.querySelectorAll(".transport-person")].map((el) => el.textContent.trim());
+  const backup = article.querySelector(".transport-backup");
+  if (backup) names.push(...backup.textContent.replace(/^Backup:\s*/i, "").split("/").map((name) => name.trim()).filter(Boolean));
+  transportItems[id] = { topic: article.querySelector(".transport-title").textContent.trim(), names };
+  const button = document.createElement("button");
+  button.className = "transport-edit"; button.type = "button"; button.title = "Edit topic and names"; button.setAttribute("aria-label", "Edit topic and names");
+  button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>';
+  article.querySelector(".transport-card").appendChild(button);
+});
+
+function renderTransportItem(id) {
+  const article = document.querySelector(`[data-transport-id="${id}"]`), item = transportItems[id];
+  if (!article || !item) return;
+  article.querySelector(".transport-title").textContent = item.topic;
+  let team = article.querySelector(".transport-team");
+  if (!team && item.names.length) { team = document.createElement("div"); team.className = "transport-team"; article.querySelector(".transport-card").appendChild(team); }
+  if (team) {
+    team.innerHTML = item.names.map((name, index) => '<span class="transport-person' + (index === 0 ? " lead" : "") + '">' + esc(name) + "</span>").join("");
+    team.hidden = item.names.length === 0;
+  }
+}
+
+async function loadTransport() {
+  try {
+    const response = await fetch(BACKEND_URL + "/api/public/transport", { cache: "no-store" });
+    const body = await response.json();
+    if (!response.ok || !body.items) return;
+    Object.entries(body.items).forEach(([id, item]) => {
+      if (!transportItems[id] || !item || typeof item.topic !== "string" || !Array.isArray(item.names)) return;
+      transportItems[id] = { topic: item.topic, names: item.names };
+      renderTransportItem(id);
+    });
+  } catch {}
+}
+
+let editingTransportId = "";
+function openTransportEditor(article) {
+  if (!isAdmin() || !article) return;
+  editingTransportId = article.dataset.transportId;
+  const item = transportItems[editingTransportId];
+  $("transportTopic").value = item.topic;
+  $("transportNames").value = item.names.join(", ");
+  $("transportEditorError").textContent = "";
+  $("transportEditor").hidden = false;
+  $("transportTopic").focus();
+}
+function closeTransportEditor() { $("transportEditor").hidden = true; editingTransportId = ""; }
+$("transportCancel").onclick = closeTransportEditor;
+$("transportEditor").addEventListener("click", (event) => { if (event.target === $("transportEditor")) closeTransportEditor(); });
+$("transportSave").onclick = async () => {
+  const topic = $("transportTopic").value.trim();
+  const names = $("transportNames").value.split(",").map((name) => name.trim()).filter(Boolean);
+  if (!topic) { $("transportEditorError").textContent = "Topic is required."; return; }
+  $("transportSave").disabled = true; $("transportEditorError").textContent = "";
+  try {
+    const response = await api("/api/public/transport", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ id:editingTransportId, topic, names }) });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Could not save.");
+    transportItems[editingTransportId] = { topic:body.topic, names:body.names };
+    renderTransportItem(editingTransportId); closeTransportEditor(); toast("Transport item updated.");
+  } catch (error) { $("transportEditorError").textContent = error.message || "Could not save."; }
+  finally { $("transportSave").disabled = false; }
+};
 $("burger").onclick = () => document.body.classList.toggle("nav-open");
 $("scrim").onclick = () => document.body.classList.remove("nav-open");
 window.addEventListener("hashchange", () => showView(location.hash.slice(1)));
@@ -1981,6 +2080,8 @@ async function enterApp() {
 function signOut() {
   session = { token: "", name: "", role: "", email: "" };
   sessionStorage.removeItem("opb_tok");
+  document.body.classList.remove("is-admin");
+  closeTransportEditor();
   sheetLoaded = false;
   document.body.classList.remove("authed");
   showView("transport");
@@ -1989,6 +2090,7 @@ function updateUserChip() {
   const c = $("userChip"); if (!c) return;
   c.querySelector(".un").textContent = session.name || session.email || "";
   c.querySelector(".ur").textContent = session.role ? session.role.toUpperCase() : "";
+  document.body.classList.toggle("is-admin", isAdmin());
 }
 
 function loadScript(src) {
@@ -2029,6 +2131,7 @@ $("viewPublic").onclick = () => showView("transport");
 
 (async function bootAuth() {
   initGoogle();
+  loadTransport();
   if (session.token) {
     try {
       const r = await fetch(BACKEND_URL + "/api/me", { headers: { Authorization: "Bearer " + session.token } });

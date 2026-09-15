@@ -17,8 +17,28 @@ const DATA_DIR = process.env.DATA_DIR
     : path.join(os.tmpdir(), "opb-data"));
 const FILE = path.join(DATA_DIR, "opb-config.json");
 
-const DEFAULT = { workbook: null, scanSheet: "", guestSheets: [], cutoff: "", eventDate: "" };
+const DEFAULT = { workbook: null, scanSheet: "", guestSheets: [], cutoff: "", eventDate: "", transport: {} };
 let cache = null;
+
+function normalizeTransportItem(item) {
+  if (!item || typeof item !== "object") return null;
+  const topic = typeof item.topic === "string" ? item.topic.trim().slice(0, 120) : "";
+  const names = Array.isArray(item.names)
+    ? item.names.filter((name) => typeof name === "string").map((name) => name.trim().slice(0, 60)).filter(Boolean).slice(0, 12)
+    : [];
+  return topic ? { topic, names } : null;
+}
+
+function normalizeTransport(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result = {};
+  for (const [id, item] of Object.entries(value).slice(0, 50)) {
+    if (!/^[a-z0-9-]{1,60}$/.test(id)) continue;
+    const normalized = normalizeTransportItem(item);
+    if (normalized) result[id] = normalized;
+  }
+  return result;
+}
 
 function normalizeCutoff(v) {
   if (v == null || v === "") return "";
@@ -45,6 +65,7 @@ function normalize(c) {
     guestSheets: Array.isArray(c?.guestSheets) ? c.guestSheets.filter((s) => typeof s === "string") : [],
     cutoff: normalizeCutoff(c?.cutoff),
     eventDate: normalizeEventDate(c?.eventDate),
+    transport: normalizeTransport(c?.transport),
   };
 }
 
@@ -68,10 +89,22 @@ export async function setConfig(patch) {
     if ("guestSheets" in patch) c.guestSheets = Array.isArray(patch.guestSheets) ? patch.guestSheets.filter((s) => typeof s === "string") : [];
     if ("cutoff" in patch) c.cutoff = normalizeCutoff(patch.cutoff);
     if ("eventDate" in patch) c.eventDate = normalizeEventDate(patch.eventDate);
+    if ("transport" in patch) c.transport = normalizeTransport(patch.transport);
   }
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(FILE, JSON.stringify(c, null, 2));
   return { ...c };
+}
+
+export async function setTransportItem(id, item) {
+  if (!/^[a-z0-9-]{1,60}$/.test(String(id || ""))) throw new Error("invalid transport id");
+  const normalized = normalizeTransportItem(item);
+  if (!normalized) throw new Error("invalid transport item");
+  const config = await load();
+  config.transport = { ...config.transport, [id]: normalized };
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(FILE, JSON.stringify(config, null, 2));
+  return { id, ...normalized };
 }
 
 // Test hook only — drop the in-memory cache so a fresh DATA_DIR is re-read.

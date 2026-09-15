@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
@@ -6,7 +6,9 @@ import { promises as fs } from "node:fs";
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "opb-cfg-"));
 process.env.DATA_DIR = dir;
-const { getConfig, setConfig, _resetCache } = await import("./configstore.js");
+const { getConfig, setConfig, setTransportItem, _resetCache } = await import("./configstore.js");
+
+after(() => fs.rm(dir, { recursive: true, force: true }));
 
 test("defaults to empty config", async () => {
   _resetCache();
@@ -40,4 +42,16 @@ test("ignores non-string entries and bad types", async () => {
   assert.equal(c.cutoff, "1700");
   assert.equal(c.eventDate, "");
   assert.deepEqual(c.guestSheets, ["A", "B"]);
+});
+
+test("stores only validated public transport topics and names", async () => {
+  const saved = await setTransportItem("sat-1730", {
+    topic: "  Star pickup  ",
+    names: [" Dibakar ", 42, "Mayukh", ""],
+  });
+  assert.deepEqual(saved, { id: "sat-1730", topic: "Star pickup", names: ["Dibakar", "Mayukh"] });
+  _resetCache();
+  assert.deepEqual((await getConfig()).transport["sat-1730"], { topic: "Star pickup", names: ["Dibakar", "Mayukh"] });
+  await assert.rejects(() => setTransportItem("../bad", { topic: "No", names: [] }));
+  await assert.rejects(() => setTransportItem("sat-1730", { topic: "", names: [] }));
 });
