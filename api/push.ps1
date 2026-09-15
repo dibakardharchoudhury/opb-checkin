@@ -6,14 +6,24 @@ param(
   [string]$Rg  = "rg-opb-checkin",
   [string]$App = "opb-checkin-api"
 )
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 az account set --subscription $Subscription | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Could not select Azure subscription $Subscription." }
+$subscriptionId = az account show --query id -o tsv
+if ($LASTEXITCODE -ne 0 -or -not $subscriptionId) { throw "Could not resolve Azure subscription." }
 
 if (Test-Path app.zip) { Remove-Item app.zip -Force }
 Compress-Archive -Path server.js, graph.js, rules.js, auth.js, userstore.js, configstore.js, package.json, package-lock.json -DestinationPath app.zip -Force
-"zip exit=$LASTEXITCODE"
 
-"=== deploy ==="
-az webapp deploy --name $App --resource-group $Rg --src-path app.zip --type zip 2>&1 | Select-Object -Last 6
-"deploy exit=$LASTEXITCODE"
+"=== deploy (SCM publishing is restored to disabled afterward) ==="
+$scmPolicyId = "/subscriptions/$subscriptionId/resourceGroups/$Rg/providers/Microsoft.Web/sites/$App/basicPublishingCredentialsPolicies/scm"
+try {
+  az resource update --ids $scmPolicyId --api-version 2022-03-01 --set properties.allow=true --output none
+  if ($LASTEXITCODE -ne 0) { throw "Could not enable SCM publishing for deployment." }
+  az webapp deploy --name $App --resource-group $Rg --src-path app.zip --type zip --clean true --restart true
+  if ($LASTEXITCODE -ne 0) { throw "Azure ZIP deployment failed." }
+} finally {
+  az resource update --ids $scmPolicyId --api-version 2022-03-01 --set properties.allow=false --output none
+  if ($LASTEXITCODE -ne 0) { throw "CRITICAL: could not disable SCM publishing after deployment." }
+}
 "Health: https://$App.azurewebsites.net/health"
