@@ -184,11 +184,16 @@
   .transport-count span { display:block; margin-top:4px; color:var(--muted); font-size:9.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
   .transport-days { display:flex; flex-direction:column; gap:24px; }
   .transport-day { min-width:0; }
-  .transport-day-header { display:flex; align-items:baseline; gap:12px; margin:0 0 10px 52px; color:var(--maroon); }
-  .transport-day-header::after { content:""; height:1px; flex:1; background:linear-gradient(90deg,rgba(217,164,65,.65),transparent); }
+  .transport-day-header { margin:0 0 10px 52px; }
+  .transport-day-toggle { width:100%; display:flex; align-items:center; gap:10px; padding:3px 0; border:0; background:transparent; color:var(--maroon); cursor:pointer; text-align:left; }
+  .transport-day-toggle::after { content:""; height:1px; flex:1; background:linear-gradient(90deg,rgba(217,164,65,.65),transparent); }
+  .transport-day-toggle:focus-visible { outline:2px solid var(--gold); outline-offset:4px; border-radius:4px; }
   .transport-weekday { font-family:"Cormorant Garamond",serif; font-size:21px; font-weight:700; line-height:1; }
-  .transport-day-header time { order:2; font-size:11px; font-weight:700; letter-spacing:.45px; text-transform:uppercase; white-space:nowrap; }
+  .transport-day-toggle time { font-size:11px; font-weight:700; letter-spacing:.45px; text-transform:uppercase; white-space:nowrap; }
+  .transport-chevron { width:16px; height:16px; flex:0 0 16px; transition:transform .18s ease; }
+  .transport-day-toggle[aria-expanded="false"] .transport-chevron { transform:rotate(-90deg); }
   .transport-list { position:relative; display:flex; flex-direction:column; gap:12px; }
+  .transport-list[hidden] { display:none; }
   .transport-list::before { content:""; position:absolute; top:24px; bottom:24px; left:19px; width:2px;
     background:linear-gradient(180deg,var(--gold),rgba(217,164,65,.18)); }
   .transport-item { position:relative; display:grid; grid-template-columns:40px minmax(0,1fr); gap:12px; }
@@ -735,12 +740,12 @@
           <div class="dashtitle">Transport &amp; logistics</div>
           <p>Thakur, visiting stars and drum kit movements &middot; 14&ndash;19 October 2026</p>
         </div>
-        <div class="transport-count"><b>8</b><span>Movements</span></div>
+        <div class="transport-count"><b>9</b><span>Movements</span></div>
       </div>
       <div class="transport-days">
         <section class="transport-day" aria-labelledby="transport-wed">
-          <h2 class="transport-day-header" id="transport-wed"><span class="transport-weekday">Wednesday</span><time datetime="2026-10-14">14 Oct</time></h2>
-          <div class="transport-list">
+          <h2 class="transport-day-header" id="transport-wed"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-wed-list"><span class="transport-weekday">Wednesday</span><time datetime="2026-10-14">14 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="transport-wed-list">
             <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
@@ -753,8 +758,8 @@
           </div>
         </section>
         <section class="transport-day" aria-labelledby="transport-thu">
-          <h2 class="transport-day-header" id="transport-thu"><span class="transport-weekday">Thursday</span><time datetime="2026-10-15">15 Oct</time></h2>
-          <div class="transport-list">
+          <h2 class="transport-day-header" id="transport-thu"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-thu-list"><span class="transport-weekday">Thursday</span><time datetime="2026-10-15">15 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="transport-thu-list">
             <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
@@ -767,8 +772,8 @@
           </div>
         </section>
         <section class="transport-day" aria-labelledby="transport-fri">
-          <h2 class="transport-day-header" id="transport-fri"><span class="transport-weekday">Friday</span><time datetime="2026-10-16">16 Oct</time></h2>
-          <div class="transport-list">
+          <h2 class="transport-day-header" id="transport-fri"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-fri-list"><span class="transport-weekday">Friday</span><time datetime="2026-10-16">16 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="transport-fri-list">
             <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
@@ -789,8 +794,8 @@
           </div>
         </section>
         <section class="transport-day" aria-labelledby="transport-sat">
-          <h2 class="transport-day-header" id="transport-sat"><span class="transport-weekday">Saturday</span><time datetime="2026-10-17">17 Oct</time></h2>
-          <div class="transport-list">
+          <h2 class="transport-day-header" id="transport-sat"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-sat-list"><span class="transport-weekday">Saturday</span><time datetime="2026-10-17">17 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="transport-sat-list">
             <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
@@ -808,11 +813,19 @@
             <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Sandeep</span></div>
           </div>
             </article>
+            <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-time">17:30</span></div>
+            <h3 class="transport-title">Star #2 Airbnb pickup &amp; return drop</h3>
+            <p class="transport-note">Airbnb &harr; venue</p>
+          </div>
+            </article>
           </div>
         </section>
         <section class="transport-day" aria-labelledby="transport-sun">
-          <h2 class="transport-day-header" id="transport-sun"><span class="transport-weekday">Sunday</span><time datetime="2026-10-18">18 Oct</time></h2>
-          <div class="transport-list">
+          <h2 class="transport-day-header" id="transport-sun"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-sun-list"><span class="transport-weekday">Sunday</span><time datetime="2026-10-18">18 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="transport-sun-list">
             <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
           <div class="transport-card">
@@ -824,8 +837,8 @@
           </div>
         </section>
         <section class="transport-day" aria-labelledby="transport-mon">
-          <h2 class="transport-day-header" id="transport-mon"><span class="transport-weekday">Monday</span><time datetime="2026-10-19">19 Oct</time></h2>
-          <div class="transport-list">
+          <h2 class="transport-day-header" id="transport-mon"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-mon-list"><span class="transport-weekday">Monday</span><time datetime="2026-10-19">19 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="transport-mon-list">
             <article class="transport-item">
           <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div class="transport-card">
@@ -930,8 +943,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.66"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-09-15T15:44:25Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.67"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-09-15T15:50:38Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1831,6 +1844,13 @@ function showView(name) {
 document.getElementById("nav").addEventListener("click", (e) => {
   const a = e.target.closest("a[data-view]"); if (!a) return;
   e.preventDefault(); showView(a.dataset.view);
+});
+document.querySelector(".transport-days").addEventListener("click", (e) => {
+  const toggle = e.target.closest(".transport-day-toggle"); if (!toggle) return;
+  const list = $(toggle.getAttribute("aria-controls")); if (!list) return;
+  const expanded = toggle.getAttribute("aria-expanded") === "true";
+  toggle.setAttribute("aria-expanded", String(!expanded));
+  list.hidden = expanded;
 });
 $("burger").onclick = () => document.body.classList.toggle("nav-open");
 $("scrim").onclick = () => document.body.classList.remove("nav-open");
