@@ -175,6 +175,37 @@
   .srow .sbar i.good { background:linear-gradient(90deg,var(--gold),#2e9c54); }
   .srow .sbar i.mid { background:linear-gradient(90deg,#d9a441,#c8a24c); }
   .srow .sbar i.low { background:linear-gradient(90deg,#c0261f,#d98c1c); }
+  /* ---- transport & logistics schedule ---- */
+  .transport-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin:0 2px 18px; }
+  .transport-intro p { margin:3px 0 0; color:var(--muted); font-size:13px; line-height:1.5; }
+  .transport-count { flex:0 0 auto; min-width:78px; padding:9px 12px; border:1px solid rgba(217,164,65,.55);
+    border-radius:12px; background:var(--ivory); color:var(--maroon); text-align:center; }
+  .transport-count b { display:block; font-family:"Cormorant Garamond",serif; font-size:26px; line-height:1; }
+  .transport-count span { display:block; margin-top:4px; color:var(--muted); font-size:9.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+  .transport-list { position:relative; display:flex; flex-direction:column; gap:12px; }
+  .transport-list::before { content:""; position:absolute; top:24px; bottom:24px; left:19px; width:2px;
+    background:linear-gradient(180deg,var(--gold),rgba(217,164,65,.18)); }
+  .transport-item { position:relative; display:grid; grid-template-columns:40px minmax(0,1fr); gap:12px; }
+  .transport-marker { position:relative; z-index:1; width:40px; height:40px; display:grid; place-items:center;
+    border-radius:50%; color:#fff; background:linear-gradient(150deg,var(--maroon),var(--maroon-2));
+    border:3px solid var(--cream); box-shadow:0 0 0 1px var(--gold); }
+  .transport-marker svg { width:18px; height:18px; }
+  .transport-card { background:var(--ivory); border:1px solid rgba(217,164,65,.5); border-radius:16px;
+    padding:14px 16px; box-shadow:0 5px 18px rgba(122,18,32,.07); }
+  .transport-when { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-bottom:7px; }
+  .transport-date { color:var(--maroon); font-size:12px; font-weight:700; letter-spacing:.35px; text-transform:uppercase; }
+  .transport-time { padding:3px 8px; border-radius:999px; background:rgba(217,164,65,.18); color:#74570f;
+    font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .transport-title { margin:0; color:var(--ink); font-family:"Cormorant Garamond",serif; font-size:21px; font-weight:700; line-height:1.2; }
+  .transport-note { margin:5px 0 0; color:var(--muted); font-size:12px; line-height:1.4; }
+  .transport-team { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:11px; padding-top:10px;
+    border-top:1px solid rgba(217,164,65,.25); }
+  .transport-person { display:inline-flex; align-items:center; min-height:28px; padding:4px 9px; border-radius:999px;
+    border:1px solid rgba(217,164,65,.42); background:var(--cream); color:var(--ink); font-size:12px; font-weight:600; }
+  .transport-person.lead { border-color:var(--maroon); background:var(--maroon); color:#fff; }
+  .transport-person.lead::after { content:"Lead"; margin-left:6px; padding-left:6px; border-left:1px solid rgba(255,255,255,.4);
+    font-size:8.5px; font-weight:700; letter-spacing:.55px; text-transform:uppercase; }
+  .transport-backup { width:100%; margin-top:2px; color:var(--muted); font-size:11.5px; }
   /* ---- parking / food entry forms ---- */
   .entryform .frow { margin-bottom:12px; }
   .entryform .frow2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
@@ -441,6 +472,14 @@
     .topbar .burger { display:inline-flex; }
     .topbar .event { font-size:19px; }
   }
+  @media (max-width:480px) {
+    .transport-intro { align-items:center; }
+    .transport-item { grid-template-columns:34px minmax(0,1fr); gap:9px; }
+    .transport-list::before { left:16px; }
+    .transport-marker { width:34px; height:34px; }
+    .transport-card { padding:12px 13px; }
+    .transport-title { font-size:19px; }
+  }
 </style>
 </head>
 <body>
@@ -477,6 +516,10 @@
     <a data-view="food">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg>
       Food Stall-Dues
+    </a>
+    <a data-view="transport">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>
+      Transport &amp; Logistics
     </a>
     <a data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.09 3H10a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09A1.65 1.65 0 0 0 21 10.09H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -669,6 +712,86 @@
         <button id="paySave">Record payment</button>
       </div></div>
     </section>
+    <section class="view" data-view="transport">
+      <div class="transport-intro">
+        <div>
+          <div class="dashtitle">Transport &amp; logistics</div>
+          <p>Thakur, visiting stars and drum kit movements &middot; 14&ndash;19 October 2026</p>
+        </div>
+        <div class="transport-count"><b>8</b><span>Movements</span></div>
+      </div>
+      <div class="transport-list">
+        <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-date">Wednesday 14 Oct</span><span class="transport-time">10:55</span></div>
+            <h3 class="transport-title">Star #2 pickup</h3>
+            <p class="transport-note">Oslo Airport</p>
+            <div class="transport-team"><span class="transport-person lead">Dibakar</span></div>
+          </div>
+        </article>
+        <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-date">Thursday 15 Oct</span><span class="transport-time">16:00</span></div>
+            <h3 class="transport-title">Thakur transport</h3>
+            <p class="transport-note">From L&oslash;renskog</p>
+            <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Mayukh</span><span class="transport-person">Saikat</span><span class="transport-person">Prasenjit</span><span class="transport-person">Anirban Singha Ray</span></div>
+          </div>
+        </article>
+        <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-date">Friday 16 Oct</span><span class="transport-time">00:15</span></div>
+            <h3 class="transport-title">Star #1 pickup</h3>
+            <p class="transport-note">Oslo Airport &middot; overnight from Thursday 15 October</p>
+            <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Dibakar</span></div>
+          </div>
+        </article>
+        <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-date">Friday 16 Oct</span><span class="transport-time">Lunch</span></div>
+            <h3 class="transport-title">Star lunch, pickup &amp; drop</h3>
+            <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Dibakar</span></div>
+          </div>
+        </article>
+        <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-date">Saturday 17 Oct</span><span class="transport-time">04:15</span></div>
+            <h3 class="transport-title">Star #1 airport drop-off</h3>
+            <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Suprakash da</span><div class="transport-backup"><b>Backup:</b> Mayukh / Dibakar</div></div>
+          </div>
+        </article>
+        <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-date">Saturday 17 Oct</span><span class="transport-time">10:00</span></div>
+            <h3 class="transport-title">Drum kit and equipment drop-off</h3>
+            <p class="transport-note">Oslo</p>
+            <div class="transport-team"><span class="transport-person lead">Mayukh</span><span class="transport-person">Sandeep</span></div>
+          </div>
+        </article>
+        <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17h12M8 17l1-12h6l1 12M9 9h6M5 13h3M16 13h3"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-date">Sunday 18 Oct</span><span class="transport-time">09:30</span></div>
+            <h3 class="transport-title">Star #2 airport drop-off</h3>
+            <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Suprakash da</span><div class="transport-backup"><b>Backup:</b> Mayukh / Dibakar</div></div>
+          </div>
+        </article>
+        <article class="transport-item">
+          <div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
+          <div class="transport-card">
+            <div class="transport-when"><span class="transport-date">Monday 19 Oct</span><span class="transport-time">18:00</span></div>
+            <h3 class="transport-title">Thakur transport</h3>
+            <p class="transport-note">From Fornebu</p>
+            <div class="transport-team"><span class="transport-person lead">Arunavo</span><span class="transport-person">Mayukh</span><span class="transport-person">Saikat</span><span class="transport-person">Ankit Gadia</span><span class="transport-person">Anirban Singha Ray</span></div>
+          </div>
+        </article>
+      </div>
+    </section>
     <section class="view" data-view="settings">
       <div id="settingsAdmin" class="hidden">
         <div class="card">
@@ -759,8 +882,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.64"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-08-13T14:36:36Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.65"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-09-15T00:00:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1632,7 +1755,7 @@ $("uEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") addUser(
 $("userList").addEventListener("click", (e) => { const b = e.target.closest(".rm"); if (b) removeUserEmail(b.dataset.email); });
 
 // ---- navigation (tabs + mobile drawer) ----
-const labels = { scan:"Scan & Register", walkin:"Walk-in", dashboard:"Dashboard", guests:"Reports", parking:"Parking", food:"Food Stall-Dues", settings:"Settings" };
+const labels = { scan:"Scan & Register", walkin:"Walk-in", dashboard:"Dashboard", guests:"Reports", parking:"Parking", food:"Food Stall-Dues", transport:"Transport & Logistics", settings:"Settings" };
 function showView(name) {
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === name));
   document.querySelectorAll("main .view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
