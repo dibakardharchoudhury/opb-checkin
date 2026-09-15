@@ -426,11 +426,15 @@
   .userchip .ur { font-size:10px; letter-spacing:1.5px; color:var(--gold-2); }
   .signout { background:rgba(244,207,130,.12); color:var(--gold-2); border:1px solid rgba(244,207,130,.35);
     padding:7px 10px; font-size:12px; border-radius:10px; cursor:pointer; }
+  .publicchip { padding:12px 14px; border-top:1px solid rgba(244,207,130,.18); display:none; align-items:center; gap:10px; }
+  body.public-view:not(.authed) .publicchip { display:flex; }
+  .publicchip span { min-width:0; flex:1; color:var(--gold-2); font-size:11px; font-weight:600; line-height:1.3; }
+  .publicchip button { white-space:nowrap; }
 
   #login { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:22px;
     background:radial-gradient(600px 300px at 50% 0, rgba(244,207,130,.16), transparent 60%),
       linear-gradient(180deg,var(--maroon),var(--maroon-2)); }
-  body.authed #login { display:none; }
+  body.authed #login, body.public-view #login { display:none; }
   .loginCard { position:relative; background:linear-gradient(180deg,#fffdf8,var(--ivory));
     border:1px solid rgba(217,164,65,.6); border-radius:22px; padding:30px 24px 24px; max-width:390px;
     width:100%; text-align:center; box-shadow:0 26px 64px rgba(20,4,8,.55); overflow:hidden; }
@@ -452,6 +456,7 @@
     padding:12px; border-radius:24px; border:1.5px solid #dadce0; background:#fff; color:#3c4043;
     font:inherit; font-weight:600; font-size:14px; cursor:pointer; }
   .msbtn:hover { background:#f8f9fa; }
+  .login-public { border:0; background:transparent; color:var(--maroon); padding:8px 12px; font-size:12.5px; font-weight:700; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
   .loginErr { color:var(--err); font-size:13px; min-height:18px; margin-top:14px; }
   .loginNote { font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5; }
 
@@ -538,6 +543,10 @@
   <div class="userchip" id="userChip">
     <div class="ua"><span class="un"></span><span class="ur"></span></div>
     <button id="signOut" class="signout">Sign out</button>
+  </div>
+  <div class="publicchip" id="publicChip">
+    <span>Public event schedule</span>
+    <button id="publicSignIn" class="signout">Volunteer sign in</button>
   </div>
   <div class="foot">Oslo Probasee Bangali<br/><b>10th Year · Durga Puja 2026</b></div>
 </aside>
@@ -896,6 +905,7 @@
         Continue with Microsoft
       </button>
     </div>
+    <button id="viewPublic" class="login-public" type="button">View Transport &amp; Logistics without signing in</button>
     <div class="loginErr" id="loginErr"></div>
     <div class="loginNote">Access is limited to approved OPB volunteers.</div>
   </div>
@@ -920,8 +930,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.65"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-09-15T00:00:00Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.66"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-09-15T15:44:25Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1794,7 +1804,17 @@ $("userList").addEventListener("click", (e) => { const b = e.target.closest(".rm
 
 // ---- navigation (tabs + mobile drawer) ----
 const labels = { scan:"Scan & Register", walkin:"Walk-in", dashboard:"Dashboard", guests:"Reports", parking:"Parking", food:"Food Stall-Dues", transport:"Transport & Logistics", settings:"Settings" };
+const PUBLIC_VIEWS = new Set(["transport"]);
+let pendingView = "";
 function showView(name) {
+  if (!labels[name]) return;
+  if (!session.token && !PUBLIC_VIEWS.has(name)) {
+    pendingView = name;
+    document.body.classList.remove("public-view", "nav-open");
+    return;
+  }
+  pendingView = "";
+  document.body.classList.toggle("public-view", !session.token && PUBLIC_VIEWS.has(name));
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === name));
   document.querySelectorAll("main .view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
   $("viewPill").textContent = labels[name] || "";
@@ -1806,6 +1826,7 @@ function showView(name) {
   if (name === "parking") openParking();
   if (name === "food") openFood();
   if (name === "settings") openSettings();
+  try { history.replaceState(null, "", location.pathname + location.search + "#" + name); } catch {}
 }
 document.getElementById("nav").addEventListener("click", (e) => {
   const a = e.target.closest("a[data-view]"); if (!a) return;
@@ -1813,6 +1834,7 @@ document.getElementById("nav").addEventListener("click", (e) => {
 });
 $("burger").onclick = () => document.body.classList.toggle("nav-open");
 $("scrim").onclick = () => document.body.classList.remove("nav-open");
+window.addEventListener("hashchange", () => showView(location.hash.slice(1)));
 
 // ---- authentication (Google / Microsoft social sign-in) ----
 let session = { token: sessionStorage.getItem("opb_tok") || "", name: "", role: "", email: "" };
@@ -1929,15 +1951,19 @@ async function exchange(provider, credential) {
 }
 
 async function enterApp() {
-  document.body.classList.add("authed"); updateUserChip();
+  const target = pendingView && labels[pendingView] ? pendingView : "scan";
+  document.body.classList.add("authed");
+  document.body.classList.remove("public-view");
+  updateUserChip();
   await loadTabs(); await loadConfig(); applyConfig();
-  showView("scan");
+  showView(target);
 }
 function signOut() {
   session = { token: "", name: "", role: "", email: "" };
   sessionStorage.removeItem("opb_tok");
   sheetLoaded = false;
   document.body.classList.remove("authed");
+  showView("transport");
 }
 function updateUserChip() {
   const c = $("userChip"); if (!c) return;
@@ -1978,6 +2004,8 @@ async function msSignIn() {
 if (!AUTH_CFG.microsoft || AUTH_CFG.microsoft.startsWith("REPLACE")) $("msBtn").style.display = "none";
 $("msBtn").onclick = msSignIn;
 $("signOut").onclick = signOut;
+$("publicSignIn").onclick = () => document.body.classList.remove("public-view", "nav-open");
+$("viewPublic").onclick = () => showView("transport");
 
 (async function bootAuth() {
   initGoogle();
@@ -1987,7 +2015,10 @@ $("signOut").onclick = signOut;
       if (r.ok) { const u = await r.json(); session.name = u.name; session.role = u.role; session.email = u.email; enterApp(); return; }
     } catch {}
     signOut();
+    return;
   }
+  const requestedView = location.hash.slice(1);
+  showView(labels[requestedView] ? requestedView : "transport");
 })();
 
 // ---- build-version badge + update prompt (Nordkapp-style) ----

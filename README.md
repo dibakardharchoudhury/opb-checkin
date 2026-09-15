@@ -49,6 +49,11 @@ verifies the provider ID token (signature, issuer, audience, expiry, `email_veri
 and checks the email against an **allowlist** before issuing a short-lived session JWT.
 The scan and guest-list endpoints require that session; `ADMIN_EMAILS` get the admin role.
 
+`Transport & Logistics` is a public, static module and opens without sign-in. Anonymous
+visitors who select any protected module are sent to the existing sign-in gate. Additional
+static public modules can be added to `PUBLIC_VIEWS` in `index.html`; API-backed modules
+remain protected by the backend session checks.
+
 Set up (all free, no admin):
 1. **Google** — Google Cloud Console → *APIs & Services → Credentials → OAuth client ID*
    (type *Web*); add your Pages URL as an authorized JavaScript origin. Copy the client ID.
