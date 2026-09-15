@@ -45,6 +45,15 @@ if (-not $planId) {
 az webapp create -n $App -g $Rg -p $Plan --runtime "NODE:20-lts" 2>&1 | Out-Null
 "webapp exit=$LASTEXITCODE"
 
+"=== public HTTPS endpoint ==="
+# Browser requests originate from each volunteer's device, not from GitHub Pages IPs.
+# Keep the API internet-reachable while CORS, JWT verification, and email allowlisting
+# enforce browser and application access.
+az webapp update -n $App -g $Rg --https-only true --set publicNetworkAccess=Enabled 2>&1 | Out-Null
+"public network exit=$LASTEXITCODE"
+az webapp config set -n $App -g $Rg --min-tls-version 1.2 2>&1 | Out-Null
+"HTTPS/TLS exit=$LASTEXITCODE"
+
 "=== base app settings (secrets set separately, once) ==="
 # A random session-signing secret for the login JWTs (generated once per provision).
 $sessionSecret = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 48 | ForEach-Object { [char]$_ })

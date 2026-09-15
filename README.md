@@ -118,7 +118,13 @@ cd ..; python -m http.server 8765   # http://localhost:8765/index.html
 
 ## Security notes
 - No secrets in the browser or repo; the refresh token/client secret live only in App Service settings.
-- Backend fails CORS closed to `ALLOWED_ORIGINS` and rate-limits per IP.
+- App Service is publicly reachable because API calls come directly from each volunteer's browser and
+   therefore use the volunteer's current network IP, not a GitHub Pages source IP. HTTPS-only and TLS 1.2
+   are enforced by `provision.ps1`.
+- Backend fails CORS closed to the exact `ALLOWED_ORIGINS` value and rate-limits per IP. CORS prevents
+   other browser origins from reading responses; it is not authentication and does not block non-browser clients.
 - Volunteer/admin access requires **Google/Microsoft sign-in** verified server-side against an
   email allowlist; scan and guest-list endpoints require a session (see "Sign-in" above).
+- App Service IP restrictions are appropriate only if every user connects through known corporate or VPN
+   egress addresses. They cannot enforce "GitHub Pages only" for this browser-to-API architecture.
 - Consider signing the QR payload (HMAC) so a fabricated order number can't be walked in.
