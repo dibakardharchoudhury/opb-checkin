@@ -54,7 +54,7 @@ async function wbContext() {
   return { loc: undefined, name: workbookName() };
 }
 
-const ALLOWED = (process.env.ALLOWED_ORIGINS || "*")
+const ALLOWED = (process.env.ALLOWED_ORIGINS || "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
 function applyCors(req, res) {
@@ -151,7 +151,7 @@ app.get("/api/workbooks", requireAuth("admin"), async (_req, res) => {
     res.json({ workbooks: await listWorkbooks(token) });
   } catch (e) {
     console.error("workbooks load failed:", e?.message || e);
-    res.status(500).json({ error: "Could not list spreadsheets.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not list spreadsheets." });
   }
 });
 
@@ -235,7 +235,7 @@ app.get("/api/tabs", requireAuth(), async (req, res) => {
     res.json(data);
   } catch (e) {
     console.error("tabs load failed:", e?.message || e);
-    res.status(500).json({ error: "Could not list worksheets.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not list worksheets." });
   } finally {
     if (token && base && session) await closeSession(token, base, session);
   }
@@ -255,7 +255,8 @@ app.get("/api/ping-sheet", requireAuth(), async (req, res) => {
     if (!table) return res.json({ ok: false, workbook: name, sheet, error: "No check-in table on that worksheet." });
     res.json({ ok: true, workbook: name, sheet, table });
   } catch (e) {
-    res.json({ ok: false, sheet, error: e?.message || "Cannot reach the spreadsheet." });
+    console.error("sheet connection test failed:", e?.message || e);
+    res.json({ ok: false, sheet, error: "Cannot reach the spreadsheet." });
   }
 });
 
@@ -310,7 +311,7 @@ app.post("/api/register", requireAuth(), scanLimiter, async (req, res) => {
     });
   } catch (e) {
     console.error("register failed:", e?.message || e);
-    res.status(500).json({ error: "Registration failed — please retry.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Registration failed — please retry." });
   } finally {
     if (token && base && session) await closeSession(token, base, session);
   }
@@ -450,7 +451,7 @@ app.get("/api/sheet", requireAuth(), async (req, res) => {
     res.json(data);
   } catch (e) {
     console.error("sheet load failed:", e?.message || e);
-    res.status(500).json({ error: "Could not load the sheet.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not load the sheet." });
   } finally {
     if (token && base && session) await closeSession(token, base, session);
   }
@@ -549,7 +550,7 @@ app.get("/api/summary", requireAuth(), async (req, res) => {
     res.json(data);
   } catch (e) {
     console.error("summary failed:", e?.message || e);
-    res.status(500).json({ error: "Could not build the dashboard.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not build the dashboard." });
   } finally {
     if (token && base && session) await closeSession(token, base, session);
   }
@@ -812,7 +813,7 @@ app.get("/api/foodmenu", requireAuth(), async (_req, res) => {
     res.json({ workbook: name, items });
   } catch (e) {
     console.error("foodmenu failed:", e?.message || e);
-    res.status(500).json({ error: "Could not load the food menu.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not load the food menu." });
   } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 
@@ -871,7 +872,7 @@ app.post("/api/food-entry", requireAuth(), async (req, res) => {
     res.json({ ok: true, added: items.length, amount: Math.round(addedAmount * 100) / 100, personTotal: Number(upd.total) || 0, paid: Number(upd.paid) || 0, outstanding: Number(upd.outstanding) || 0 });
   } catch (e) {
     console.error("food-entry failed:", e?.message || e);
-    res.status(500).json({ error: "Could not save the purchase.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not save the purchase." });
   } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 
@@ -947,7 +948,7 @@ app.post("/api/food-settle", requireAuth(), async (req, res) => {
     res.json({ ok: true, name, amount, total: upd.total, paid: upd.paid, outstanding: upd.outstanding });
   } catch (e) {
     console.error("food-settle failed:", e?.message || e);
-    res.status(500).json({ error: "Could not record the payment.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not record the payment." });
   } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 
@@ -993,7 +994,7 @@ app.post("/api/parking-entry", requireAuth(), async (req, res) => {
     res.json({ ok: true, slNo });
   } catch (e) {
     console.error("parking-entry failed:", e?.message || e);
-    res.status(500).json({ error: "Could not save the car.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not save the car." });
   } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 
@@ -1063,7 +1064,7 @@ app.post("/api/walkin", requireAuth(), async (req, res) => {
     res.json({ ok: true, id: wid, name, quantity: qty, sheet: WALKIN_SHEET });
   } catch (e) {
     console.error("walkin failed:", e?.message || e);
-    res.status(500).json({ error: "Could not register the walk-in.", detail: e?.message || String(e) });
+    res.status(500).json({ error: "Could not register the walk-in." });
   } finally { if (token && base && session) await closeSession(token, base, session); }
 });
 

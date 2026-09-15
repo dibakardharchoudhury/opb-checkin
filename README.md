@@ -8,8 +8,8 @@ records the check-in (`Status` + `DateTime`) in the OPB Excel Online workbook.
 
 | Part | What | Where |
 | ---- | ---- | ----- |
-| Front end | Self-contained PWA scanner, vanilla JS, no build, no secrets | `webapp/index.html` (+ `sw.js`, `manifest.webmanifest`, icons) — GitHub Pages |
-| Back end | Express proxy: business rules + Microsoft Graph writes | `webapp/api/` — Azure App Service (Free F1) in tenant `ad340c84…`, RG `rg-opb-checkin` |
+| Front end | Self-contained PWA scanner, vanilla JS, no build, no secrets | `index.html` (+ `sw.js`, `manifest.webmanifest`, icons) — GitHub Pages |
+| Back end | Express proxy: business rules + Microsoft Graph writes | `api/` — Azure App Service (Free F1) in tenant `ad340c84…`, RG `rg-opb-checkin` |
 
 The workbook lives on a **personal OneDrive** (the workbook owner account), which
 has **no service principals**. So the backend reaches it with a **delegated** Graph
@@ -54,6 +54,11 @@ visitors who select any protected module are sent to the existing sign-in gate. 
 static public modules can be added to `PUBLIC_VIEWS` in `index.html`; API-backed modules
 remain protected by the backend session checks.
 
+Public means the transport schedule and any names, places, or times written into it are
+available to anyone with the URL. It does not make workbook data or operational APIs public:
+the transport view makes no API request and receives no session. See [SECURITY.md](SECURITY.md)
+for the threat model, verified controls, and residual operational-privacy risk.
+
 Set up (all free, no admin):
 1. **Google** — Google Cloud Console → *APIs & Services → Credentials → OAuth client ID*
    (type *Web*); add your Pages URL as an authorized JavaScript origin. Copy the client ID.
@@ -79,7 +84,7 @@ At <https://entra.microsoft.com> → **App registrations** → **New registratio
 
 ### 2. Mint the refresh token (sign in once as the workbook owner)
 ```powershell
-cd webapp/api
+   cd api
 npm install
 $env:OPB_CLIENT_ID="<app id>"; $env:OPB_CLIENT_SECRET="<secret>"
 npm run authorize          # opens sign-in; MFA/passkey handled here; prints the refresh token
@@ -94,7 +99,7 @@ Set `TABLE_NAME` to the table you update (default `Table1`).
 ### 4. Provision + deploy the backend (dedicated F1 resources, tenant `ad340c84…`)
 ```powershell
 az login --tenant ad340c84-1886-4202-a483-2da2cb9168eb
-cd webapp/api
+   cd api
 ./provision.ps1        # creates rg-opb-checkin + Free F1 plan + web app opb-checkin-api
 az webapp config appsettings set -n opb-checkin-api -g rg-opb-checkin --settings `
   OPB_CLIENT_ID="<app id>" OPB_CLIENT_SECRET="<secret>" OPB_REFRESH_TOKEN="<from step 2>"
@@ -104,8 +109,8 @@ az webapp config appsettings set -n opb-checkin-api -g rg-opb-checkin --settings
 (`GRAPH_WORKBOOK="path:/Oslo Durgotsav 2026_Test.xlsx"` and `TABLE_NAME="Table1"` are preset by provision.ps1. Default subscription: `ME-MngEnvMCAP218279-didharch-2`.)
 
 ### 5. Publish the front end
-Set `BACKEND_URL` at the top of `webapp/index.html` to the App Service URL, then serve
-`webapp/` from GitHub Pages (or any static host). Open on a phone and "Add to Home Screen".
+Set `BACKEND_URL` in `index.html` to the App Service URL, then serve the repository root
+from GitHub Pages (or any static host). Open on a phone and "Add to Home Screen".
 
 ### Versioning
 A build-version badge (bottom-left) shows the running build and prompts a reload when a
@@ -125,7 +130,7 @@ cd ..; python -m http.server 8765   # http://localhost:8765/index.html
 - No secrets in the browser or repo; the refresh token/client secret live only in App Service settings.
 - App Service is publicly reachable because API calls come directly from each volunteer's browser and
    therefore use the volunteer's current network IP, not a GitHub Pages source IP. HTTPS-only and TLS 1.2
-   are enforced by `provision.ps1`.
+   are enforced by `provision.ps1`; FTP/FTPS is disabled and remote debugging is off.
 - Backend fails CORS closed to the exact `ALLOWED_ORIGINS` value and rate-limits per IP. CORS prevents
    other browser origins from reading responses; it is not authentication and does not block non-browser clients.
 - Volunteer/admin access requires **Google/Microsoft sign-in** verified server-side against an
@@ -133,3 +138,5 @@ cd ..; python -m http.server 8765   # http://localhost:8765/index.html
 - App Service IP restrictions are appropriate only if every user connects through known corporate or VPN
    egress addresses. They cannot enforce "GitHub Pages only" for this browser-to-API architecture.
 - Consider signing the QR payload (HMAC) so a fabricated order number can't be walked in.
+- Dependency and authorization regression checks are part of `npm test`; run `npm audit --omit=dev`
+   before backend deployment. The detailed security model and test matrix are in [SECURITY.md](SECURITY.md).

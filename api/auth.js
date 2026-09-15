@@ -35,7 +35,7 @@ export async function verifyProviderToken(provider, token, deps = PROVIDERS) {
   if (!p) throw new Error("unknown provider");
   const aud = process.env[p.audEnv];
   if (!aud) throw new Error(`${p.audEnv} not configured`);
-  const { payload } = await jwtVerify(token, p.jwks, { issuer: p.issuers, audience: aud });
+  const { payload } = await jwtVerify(token, p.jwks, { issuer: p.issuers, audience: aud, algorithms: ["RS256"] });
   const email = String(payload.email || payload.preferred_username || "").toLowerCase();
   if (!email) throw new Error("token has no email");
   // Google returns a reliable email_verified boolean; reject if explicitly false.
@@ -86,7 +86,7 @@ export async function issueSession({ email, name, role }) {
 }
 
 export async function verifySession(token) {
-  const { payload } = await jwtVerify(token, secretKey(), { issuer: "opb-checkin" });
+  const { payload } = await jwtVerify(token, secretKey(), { issuer: "opb-checkin", algorithms: ["HS256"] });
   return { email: payload.sub, name: payload.name, role: payload.role };
 }
 

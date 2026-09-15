@@ -51,8 +51,8 @@ az webapp create -n $App -g $Rg -p $Plan --runtime "NODE:20-lts" 2>&1 | Out-Null
 # enforce browser and application access.
 az webapp update -n $App -g $Rg --https-only true --set publicNetworkAccess=Enabled 2>&1 | Out-Null
 "public network exit=$LASTEXITCODE"
-az webapp config set -n $App -g $Rg --min-tls-version 1.2 2>&1 | Out-Null
-"HTTPS/TLS exit=$LASTEXITCODE"
+az webapp config set -n $App -g $Rg --min-tls-version 1.2 --ftps-state Disabled --http20-enabled true 2>&1 | Out-Null
+"HTTPS/TLS/FTP exit=$LASTEXITCODE"
 
 "=== base app settings (secrets set separately, once) ==="
 # A random session-signing secret for the login JWTs (generated once per provision).
