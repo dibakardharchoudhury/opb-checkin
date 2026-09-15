@@ -49,15 +49,17 @@ verifies the provider ID token (signature, issuer, audience, expiry, `email_veri
 and checks the email against an **allowlist** before issuing a short-lived session JWT.
 The scan and guest-list endpoints require that session; `ADMIN_EMAILS` get the admin role.
 
-`Transport & Logistics` is a public module and opens without sign-in. Anonymous
-visitors who select any protected module are sent to the existing sign-in gate. Additional
-public modules can be added to `PUBLIC_VIEWS` in `index.html`; their API data must be exposed
-through a purpose-built public endpoint. Operational modules remain protected by backend sessions.
+The three `Transport & Logistics` pages open without sign-in: Pickup / Drop Plan,
+Star Schedule, and Food Pickup. Anonymous visitors who select any protected module are sent to
+the existing sign-in gate. Additional public modules can be added to `PUBLIC_VIEWS` in `index.html`;
+their API data must be exposed through a purpose-built public endpoint. Operational modules remain
+protected by backend sessions.
 
-Public means the transport schedule and any names, places, or times written into it are
-available to anyone with the URL. The transport view reads only topic/name overrides from
-`GET /api/public/transport`; only admins can save them. It receives no session and cannot read
-workbook data or operational APIs. See [SECURITY.md](SECURITY.md)
+Public means the schedules and any names, addresses, places, or times written into them are
+available to anyone with the URL. Star Schedule and Food Pickup are static frontend content.
+Pickup / Drop Plan reads only topic/name overrides from `GET /api/public/transport`; only admins
+can save them. None of these views receives a session or can read workbook data or operational APIs.
+See [SECURITY.md](SECURITY.md)
 for the threat model, verified controls, and residual operational-privacy risk.
 
 Set up (all free, no admin):

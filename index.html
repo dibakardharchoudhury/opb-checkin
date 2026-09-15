@@ -57,7 +57,9 @@
   .brand-logo { width:76px; height:76px; margin:0 auto 11px; display:block; border-radius:50%; border:1px solid rgba(230,208,154,.3); box-shadow:0 10px 30px rgba(0,0,0,.3),0 0 0 6px rgba(255,255,255,.025); }
   .brand h1 { font-family:"Cormorant Garamond",serif; font-weight:700; font-size:26px; margin:2px 0 2px; color:#fff; letter-spacing:0; }
   .brand .sub { font-size:10px; letter-spacing:2.4px; text-transform:uppercase; color:var(--gold-2); opacity:.82; }
-  .nav { position:relative; padding:7px 12px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .nav { position:relative; padding:7px 12px 14px; display:flex; flex-direction:column; gap:6px; flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(244,207,130,.35) transparent; }
+  .nav::-webkit-scrollbar { width:5px; }
+  .nav::-webkit-scrollbar-thumb { border-radius:5px; background:rgba(244,207,130,.35); }
   .nav a {
     min-height:48px; display:flex; align-items:center; gap:11px; padding:6px 10px 6px 7px; border-radius:8px;
     color:rgba(246,229,188,.83); text-decoration:none; font-weight:600; font-size:13.5px; cursor:pointer;
@@ -238,6 +240,26 @@
   .transport-editor-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:18px; }
   .transport-editor-actions .secondary { background:transparent; box-shadow:none; color:var(--maroon); }
   .transport-editor-error { min-height:18px; margin-top:8px; color:var(--danger); font-size:12px; }
+  .nav-group { margin:7px 10px 1px; color:rgba(244,207,130,.58); font-size:9px; font-weight:800; letter-spacing:1.4px; text-transform:uppercase; }
+  .nav a.transport-link { min-height:43px; margin-left:8px; font-size:12.5px; }
+  .nav a.transport-link svg { width:30px; height:30px; flex-basis:30px; padding:6px; }
+  .star-schedule { display:grid; gap:16px; }
+  .star-card { overflow:hidden; border:1px solid rgba(217,164,65,.48); border-radius:8px; background:rgba(255,255,255,.88); box-shadow:0 10px 28px rgba(72,37,26,.08); }
+  .star-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:17px 18px 14px; border-bottom:1px solid rgba(217,164,65,.3); background:linear-gradient(110deg,rgba(110,21,38,.075),rgba(217,164,65,.07)); }
+  .star-head h2 { margin:0; color:var(--maroon); font-family:"Cormorant Garamond",serif; font-size:25px; line-height:1.05; }
+  .star-party { max-width:210px; color:var(--muted); font-size:11.5px; font-weight:700; line-height:1.4; text-align:right; }
+  .star-alert { display:inline-flex; align-items:center; gap:6px; margin-top:5px; padding:4px 7px; border-radius:5px; background:#fff1c7; color:#75530a; font-size:10px; font-weight:800; }
+  .star-details { display:grid; grid-template-columns:1fr 1fr; }
+  .star-detail { min-width:0; padding:15px 18px; border-bottom:1px solid rgba(217,164,65,.2); }
+  .star-detail:nth-child(odd) { border-right:1px solid rgba(217,164,65,.2); }
+  .star-detail.wide { grid-column:1/-1; border-right:0; }
+  .star-label { margin-bottom:7px; color:var(--maroon); font-size:9.5px; font-weight:800; letter-spacing:1px; text-transform:uppercase; }
+  .star-value { color:var(--ink); font-size:13px; font-weight:700; line-height:1.45; }
+  .star-meta { margin-top:3px; color:var(--muted); font-size:11.5px; line-height:1.45; }
+  .food-slot-fields { display:grid; grid-template-columns:1fr 1fr; gap:9px 16px; margin-top:11px; padding-top:10px; border-top:1px solid rgba(217,164,65,.25); }
+  .food-slot-field { min-width:0; }
+  .food-slot-field b { display:block; margin-bottom:2px; color:var(--muted); font-size:9px; letter-spacing:.7px; text-transform:uppercase; }
+  .food-slot-field span { color:#8b8179; font-size:12px; }
   /* ---- parking / food entry forms ---- */
   .entryform .frow { margin-bottom:12px; }
   .entryform .frow2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
@@ -530,6 +552,11 @@
     .transport-marker { width:34px; height:34px; }
     .transport-card { padding:12px 13px; }
     .transport-title { font-size:19px; }
+    .star-head { display:block; padding:15px; }
+    .star-party { max-width:none; margin-top:6px; text-align:left; }
+    .star-details { grid-template-columns:1fr; }
+    .star-detail, .star-detail:nth-child(odd) { border-right:0; }
+    .star-detail.wide { grid-column:auto; }
   }
 </style>
 </head>
@@ -568,9 +595,18 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg>
       Food Stall-Dues
     </a>
-    <a data-view="transport">
+    <div class="nav-group">Transport &amp; Logistics</div>
+    <a data-view="transport" class="transport-link">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>
-      Transport &amp; Logistics
+      Pickup / Drop Plan
+    </a>
+    <a data-view="star-schedule" class="transport-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.2 4.5 5 .7-3.6 3.5.8 5-4.4-2.3-4.4 2.3.8-5-3.6-3.5 5-.7Z"/></svg>
+      Star Schedule
+    </a>
+    <a data-view="food-pickup" class="transport-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg>
+      Food Pickup
     </a>
     <a data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.09 3H10a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09A1.65 1.65 0 0 0 21 10.09H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -770,7 +806,7 @@
     <section class="view" data-view="transport">
       <div class="transport-intro">
         <div>
-          <div class="dashtitle">Transport &amp; logistics</div>
+          <div class="dashtitle">Thakur &amp; Star Pickup/Drop Plan</div>
           <p>Thakur, visiting stars and drum kit movements &middot; 14&ndash;19 October 2026</p>
         </div>
         <div class="transport-count"><b>9</b><span>Movements</span></div>
@@ -885,6 +921,111 @@
         </section>
       </div>
     </section>
+    <section class="view" data-view="star-schedule">
+      <div class="transport-intro">
+        <div>
+          <div class="dashtitle">Star Schedule</div>
+          <p>Arrival, stay, event and departure details &middot; 14&ndash;18 October 2026</p>
+        </div>
+        <div class="transport-count"><b>2</b><span>Stars</span></div>
+      </div>
+      <div class="star-schedule">
+        <article class="star-card">
+          <div class="star-head">
+            <h2>Star 1 &middot; Lakkichhara</h2>
+            <div class="star-party">5 adults</div>
+          </div>
+          <div class="star-details">
+            <div class="star-detail">
+              <div class="star-label">Arrival</div>
+              <div class="star-value">16 Oct &middot; 00:15</div>
+              <div class="star-meta">15 Oct midnight<br/>AI 8534 / LH 866</div>
+            </div>
+            <div class="star-detail">
+              <div class="star-label">Departure</div>
+              <div class="star-value">17 Oct &middot; 06:30</div>
+              <div class="star-meta">KL 1196</div>
+            </div>
+            <div class="star-detail wide">
+              <div class="star-label">Hotel</div>
+              <div class="star-value">Radisson Blu Park Hotel Lysaker</div>
+              <div class="star-meta">3 rooms booked</div>
+            </div>
+            <div class="star-detail wide">
+              <div class="star-label">Event</div>
+              <div class="star-value">16 Oct &middot; 18:30</div>
+              <div class="star-meta">Sound check at 14:30</div>
+            </div>
+          </div>
+        </article>
+        <article class="star-card">
+          <div class="star-head">
+            <h2>Star 2 &middot; Comedian / Subham Chaudhuri</h2>
+            <div class="star-party">2 adults, 1 child (age 4)<br/><span class="star-alert">Child seat required</span></div>
+          </div>
+          <div class="star-details">
+            <div class="star-detail">
+              <div class="star-label">Arrival</div>
+              <div class="star-value">14 Oct &middot; 10:55</div>
+              <div class="star-meta">LH 2452</div>
+            </div>
+            <div class="star-detail">
+              <div class="star-label">Departure</div>
+              <div class="star-value">18 Oct &middot; 11:50</div>
+              <div class="star-meta">KL 1200</div>
+            </div>
+            <div class="star-detail wide">
+              <div class="star-label">Stay</div>
+              <div class="star-value">Maridalsveien 33M, Oslo</div>
+              <div class="star-meta">Airbnb</div>
+            </div>
+            <div class="star-detail wide">
+              <div class="star-label">Event</div>
+              <div class="star-value">17 Oct &middot; 18:30</div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="view" data-view="food-pickup">
+      <div class="transport-intro">
+        <div>
+          <div class="dashtitle">Food Pickup</div>
+          <p>Lunch and dinner collection plan &middot; 16&ndash;19 October 2026</p>
+        </div>
+        <div class="transport-count"><b>8</b><span>Slots</span></div>
+      </div>
+      <div class="transport-days">
+        <section class="transport-day" aria-labelledby="food-pickup-fri">
+          <h2 class="transport-day-header" id="food-pickup-fri"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="food-pickup-fri-list"><span class="transport-weekday">Friday</span><time datetime="2026-10-16">16 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="food-pickup-fri-list">
+            <article class="transport-item"><div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div><div class="transport-card"><div class="transport-when"><span class="transport-time">Lunch</span></div><h3 class="transport-title">Food pickup</h3><div class="food-slot-fields"><div class="food-slot-field"><b>Pickup from</b><span>&mdash;</span></div><div class="food-slot-field"><b>Drop at</b><span>&mdash;</span></div><div class="food-slot-field"><b>Pickup time</b><span>&mdash;</span></div><div class="food-slot-field"><b>Assigned to</b><span>&mdash;</span></div></div></div></article>
+            <article class="transport-item"><div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div><div class="transport-card"><div class="transport-when"><span class="transport-time">Dinner</span></div><h3 class="transport-title">Food pickup</h3><div class="food-slot-fields"><div class="food-slot-field"><b>Pickup from</b><span>&mdash;</span></div><div class="food-slot-field"><b>Drop at</b><span>&mdash;</span></div><div class="food-slot-field"><b>Pickup time</b><span>&mdash;</span></div><div class="food-slot-field"><b>Assigned to</b><span>&mdash;</span></div></div></div></article>
+          </div>
+        </section>
+        <section class="transport-day" aria-labelledby="food-pickup-sat">
+          <h2 class="transport-day-header" id="food-pickup-sat"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="food-pickup-sat-list"><span class="transport-weekday">Saturday</span><time datetime="2026-10-17">17 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="food-pickup-sat-list">
+            <article class="transport-item"><div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div><div class="transport-card"><div class="transport-when"><span class="transport-time">Lunch</span></div><h3 class="transport-title">Food pickup</h3><div class="food-slot-fields"><div class="food-slot-field"><b>Pickup from</b><span>&mdash;</span></div><div class="food-slot-field"><b>Drop at</b><span>&mdash;</span></div><div class="food-slot-field"><b>Pickup time</b><span>&mdash;</span></div><div class="food-slot-field"><b>Assigned to</b><span>&mdash;</span></div></div></div></article>
+            <article class="transport-item"><div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div><div class="transport-card"><div class="transport-when"><span class="transport-time">Dinner</span></div><h3 class="transport-title">Food pickup</h3><div class="food-slot-fields"><div class="food-slot-field"><b>Pickup from</b><span>&mdash;</span></div><div class="food-slot-field"><b>Drop at</b><span>&mdash;</span></div><div class="food-slot-field"><b>Pickup time</b><span>&mdash;</span></div><div class="food-slot-field"><b>Assigned to</b><span>&mdash;</span></div></div></div></article>
+          </div>
+        </section>
+        <section class="transport-day" aria-labelledby="food-pickup-sun">
+          <h2 class="transport-day-header" id="food-pickup-sun"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="food-pickup-sun-list"><span class="transport-weekday">Sunday</span><time datetime="2026-10-18">18 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="food-pickup-sun-list">
+            <article class="transport-item"><div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div><div class="transport-card"><div class="transport-when"><span class="transport-time">Lunch</span></div><h3 class="transport-title">Food pickup</h3><div class="food-slot-fields"><div class="food-slot-field"><b>Pickup from</b><span>&mdash;</span></div><div class="food-slot-field"><b>Drop at</b><span>&mdash;</span></div><div class="food-slot-field"><b>Pickup time</b><span>&mdash;</span></div><div class="food-slot-field"><b>Assigned to</b><span>&mdash;</span></div></div></div></article>
+            <article class="transport-item"><div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div><div class="transport-card"><div class="transport-when"><span class="transport-time">Dinner</span></div><h3 class="transport-title">Food pickup</h3><div class="food-slot-fields"><div class="food-slot-field"><b>Pickup from</b><span>&mdash;</span></div><div class="food-slot-field"><b>Drop at</b><span>&mdash;</span></div><div class="food-slot-field"><b>Pickup time</b><span>&mdash;</span></div><div class="food-slot-field"><b>Assigned to</b><span>&mdash;</span></div></div></div></article>
+          </div>
+        </section>
+        <section class="transport-day" aria-labelledby="food-pickup-mon">
+          <h2 class="transport-day-header" id="food-pickup-mon"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="food-pickup-mon-list"><span class="transport-weekday">Monday</span><time datetime="2026-10-19">19 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+          <div class="transport-list" id="food-pickup-mon-list">
+            <article class="transport-item"><div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div><div class="transport-card"><div class="transport-when"><span class="transport-time">Lunch</span></div><h3 class="transport-title">Food pickup</h3><div class="food-slot-fields"><div class="food-slot-field"><b>Pickup from</b><span>&mdash;</span></div><div class="food-slot-field"><b>Drop at</b><span>&mdash;</span></div><div class="food-slot-field"><b>Pickup time</b><span>&mdash;</span></div><div class="food-slot-field"><b>Assigned to</b><span>&mdash;</span></div></div></div></article>
+            <article class="transport-item"><div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div><div class="transport-card"><div class="transport-when"><span class="transport-time">Dinner</span></div><h3 class="transport-title">Food pickup</h3><div class="food-slot-fields"><div class="food-slot-field"><b>Pickup from</b><span>&mdash;</span></div><div class="food-slot-field"><b>Drop at</b><span>&mdash;</span></div><div class="food-slot-field"><b>Pickup time</b><span>&mdash;</span></div><div class="food-slot-field"><b>Assigned to</b><span>&mdash;</span></div></div></div></article>
+          </div>
+        </section>
+      </div>
+    </section>
     <section class="view" data-view="settings">
       <div id="settingsAdmin" class="hidden">
         <div class="card">
@@ -995,8 +1136,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.69"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-09-15T16:51:37Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.70"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-09-15T16:58:06Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -1868,8 +2009,8 @@ $("uEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") addUser(
 $("userList").addEventListener("click", (e) => { const b = e.target.closest(".rm"); if (b) removeUserEmail(b.dataset.email); });
 
 // ---- navigation (tabs + mobile drawer) ----
-const labels = { scan:"Scan & Register", walkin:"Walk-in", dashboard:"Dashboard", guests:"Reports", parking:"Parking", food:"Food Stall-Dues", transport:"Transport & Logistics", settings:"Settings" };
-const PUBLIC_VIEWS = new Set(["transport"]);
+const labels = { scan:"Scan & Register", walkin:"Walk-in", dashboard:"Dashboard", guests:"Reports", parking:"Parking", food:"Food Stall-Dues", transport:"Pickup / Drop Plan", "star-schedule":"Star Schedule", "food-pickup":"Food Pickup", settings:"Settings" };
+const PUBLIC_VIEWS = new Set(["transport", "star-schedule", "food-pickup"]);
 let pendingView = "";
 function showView(name) {
   if (!labels[name]) return;
@@ -1897,7 +2038,7 @@ document.getElementById("nav").addEventListener("click", (e) => {
   const a = e.target.closest("a[data-view]"); if (!a) return;
   e.preventDefault(); showView(a.dataset.view);
 });
-document.querySelector(".transport-days").addEventListener("click", (e) => {
+document.querySelectorAll(".transport-days").forEach((days) => days.addEventListener("click", (e) => {
   const edit = e.target.closest(".transport-edit");
   if (edit) { openTransportEditor(edit.closest(".transport-item")); return; }
   const toggle = e.target.closest(".transport-day-toggle"); if (!toggle) return;
@@ -1905,7 +2046,7 @@ document.querySelector(".transport-days").addEventListener("click", (e) => {
   const expanded = toggle.getAttribute("aria-expanded") === "true";
   toggle.setAttribute("aria-expanded", String(!expanded));
   list.hidden = expanded;
-});
+}));
 
 const transportItems = {};
 document.querySelectorAll(".transport-item[data-transport-id]").forEach((article) => {

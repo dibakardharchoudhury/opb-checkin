@@ -7,9 +7,10 @@ credential, workbook content, application signing secret, or allowlist. Google a
 ID tokens are verified by the Azure API before an application session is issued. Every request
 that reads or changes workbook or configuration data is independently authorized by the API.
 
-`Transport & Logistics` is deliberately public. Anonymous navigation to that view:
+The three `Transport & Logistics` views are deliberately public. Anonymous navigation to them:
 
-- calls only `GET /api/public/transport`, which returns validated topic/name overrides;
+- loads Star Schedule and Food Pickup from static frontend content;
+- calls only `GET /api/public/transport` for Pickup / Drop Plan topic/name overrides;
 - does not create, restore, or receive an application session;
 - does not load workbook data; and
 - does not bypass the login gate on any other module.
@@ -42,13 +43,13 @@ IP restrictions are useful only when all users have known VPN or corporate egres
 
 ## Public transport analysis
 
-Publishing the transport module does not weaken operational authorization because its anonymous
-backend path returns only transport labels already intended for public display. It cannot access
-the workbook or general configuration. Knowledge of an API URL or order number does not satisfy
-the signed session and allowlist checks, and an attacker cannot use CORS as a credential substitute.
+Publishing the transport pages does not weaken operational authorization because two are static and
+the only anonymous backend path returns transport labels intended for public display. They cannot
+access the workbook or general configuration. Knowledge of an API URL or order number does not
+satisfy the signed session and allowlist checks, and an attacker cannot use CORS as a credential substitute.
 
-The module is not risk-free. Exact pickup times, airport or Airbnb locations, vehicle labels,
-and named travellers can reveal attendance and movement patterns. This is an operational privacy
+The pages are not risk-free. Exact pickup times, flight numbers, hotel or Airbnb addresses, vehicle
+labels, and named travellers can reveal attendance and movement patterns. This is an operational privacy
 and physical-security consideration even though it does not expose workbook data or credentials.
 Only publish details approved for unrestricted distribution. Prefer meeting points over private
 addresses, roles or initials over full names, and remove stale movements promptly after the event.
@@ -75,8 +76,9 @@ Live release checks should verify:
 3. Invalid provider credentials and malformed/tampered sessions return 401.
 4. The configured Pages origin receives CORS headers; another origin does not.
 5. HTTP redirects to HTTPS and API responses include the documented security/cache headers.
-6. Anonymous Transport navigation calls only the public transport read endpoint; selecting a
-  protected module opens the sign-in gate, and transport writes reject non-admin users.
+6. Anonymous navigation is limited to the three Transport & Logistics pages; only Pickup / Drop Plan
+  calls the public transport read endpoint. Protected modules open the sign-in gate, and transport
+  writes reject non-admin users.
 
 ## Residual risks
 
