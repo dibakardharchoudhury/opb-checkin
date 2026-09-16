@@ -191,6 +191,18 @@
     border-radius:12px; background:var(--ivory); color:var(--maroon); text-align:center; }
   .transport-count b { display:block; font-family:"Cormorant Garamond",serif; font-size:26px; line-height:1; }
   .transport-count span { display:block; margin-top:4px; color:var(--muted); font-size:9.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+  .plan-filter { display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,auto) 40px; gap:9px; align-items:center; margin:0 2px 18px; }
+  .plan-search { position:relative; min-width:0; }
+  .plan-search svg { position:absolute; top:50%; left:13px; width:17px; height:17px; color:var(--muted); transform:translateY(-50%); pointer-events:none; }
+  .plan-search input, .plan-filter select { width:100%; height:42px; padding:9px 12px; border:1px solid rgba(217,164,65,.58); border-radius:8px; background:rgba(255,255,255,.88); color:var(--ink); font:inherit; font-size:13px; }
+  .plan-search input { padding-left:39px; }
+  .plan-search input:focus, .plan-filter select:focus { outline:2px solid rgba(217,164,65,.48); border-color:var(--maroon); }
+  .plan-filter-clear { width:40px; height:40px; padding:0; display:grid; place-items:center; border:1px solid rgba(110,21,38,.2); border-radius:8px; background:transparent; box-shadow:none; color:var(--maroon); }
+  .plan-filter-clear svg { width:17px; height:17px; }
+  .plan-filter-clear:hover { background:rgba(110,21,38,.06); transform:none; box-shadow:none; }
+  .plan-filter-clear:disabled { opacity:.32; cursor:default; }
+  .plan-filter-status { grid-column:1/-1; min-height:15px; margin-top:-3px; color:var(--muted); font-size:11px; }
+  .plan-empty { padding:28px 16px; border:1px dashed rgba(217,164,65,.65); border-radius:8px; color:var(--muted); text-align:center; font-size:13px; }
   .transport-days { display:flex; flex-direction:column; gap:24px; }
   .transport-day { min-width:0; }
   .transport-day-header { margin:0 0 12px 52px; }
@@ -260,6 +272,11 @@
   .food-slot-field { min-width:0; }
   .food-slot-field b { display:block; margin-bottom:2px; color:var(--muted); font-size:9px; letter-spacing:.7px; text-transform:uppercase; }
   .food-slot-field span { color:#8b8179; font-size:12px; }
+  @media (max-width:560px) {
+    .plan-filter { grid-template-columns:minmax(0,1fr) 40px; }
+    .plan-filter select { grid-column:1/-1; grid-row:2; }
+    .plan-filter-status { grid-row:3; }
+  }
   /* ---- parking / food entry forms ---- */
   .entryform .frow { margin-bottom:12px; }
   .entryform .frow2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
@@ -811,6 +828,12 @@
         </div>
         <div class="transport-count"><b>9</b><span>Movements</span></div>
       </div>
+      <div class="plan-filter" data-plan-filter>
+        <div class="plan-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="Search plan" aria-label="Search pickup and drop plan" autocomplete="off" /></div>
+        <select aria-label="Filter pickup and drop plan by date"><option value="">All dates</option></select>
+        <button class="plan-filter-clear" type="button" title="Clear filters" aria-label="Clear search and date filter" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        <div class="plan-filter-status" aria-live="polite"></div>
+      </div>
       <div class="transport-days">
         <section class="transport-day" aria-labelledby="transport-wed">
           <h2 class="transport-day-header" id="transport-wed"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="transport-wed-list"><span class="transport-weekday">Wednesday</span><time datetime="2026-10-14">14 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
@@ -996,6 +1019,12 @@
         </div>
         <div class="transport-count"><b>8</b><span>Slots</span></div>
       </div>
+      <div class="plan-filter" data-plan-filter>
+        <div class="plan-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="Search food plan" aria-label="Search food pickup plan" autocomplete="off" /></div>
+        <select aria-label="Filter food pickup plan by date"><option value="">All dates</option></select>
+        <button class="plan-filter-clear" type="button" title="Clear filters" aria-label="Clear search and date filter" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        <div class="plan-filter-status" aria-live="polite"></div>
+      </div>
       <div class="transport-days">
         <section class="transport-day" aria-labelledby="food-pickup-fri">
           <h2 class="transport-day-header" id="food-pickup-fri"><button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="food-pickup-fri-list"><span class="transport-weekday">Friday</span><time datetime="2026-10-16">16 Oct</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>
@@ -1143,8 +1172,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.74"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-09-15T20:01:18Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.75"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-09-16T05:33:12Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -2055,6 +2084,52 @@ document.querySelectorAll(".transport-days").forEach((days) => days.addEventList
   list.hidden = expanded;
 }));
 
+function applyPlanFilter(view) {
+  const controls = view.querySelector("[data-plan-filter]");
+  if (!controls) return;
+  const query = controls.querySelector('input[type="search"]').value.trim().toLocaleLowerCase();
+  const date = controls.querySelector("select").value;
+  const active = Boolean(query || date);
+  let visible = 0;
+  view.querySelectorAll(".transport-day").forEach((day) => {
+    const dayDate = day.querySelector("time")?.dateTime || "";
+    const dayLabel = day.querySelector(".transport-day-header")?.textContent || "";
+    let dayVisible = 0;
+    day.querySelectorAll(".transport-item").forEach((item) => {
+      const match = (!date || dayDate === date) && (!query || (dayLabel + " " + item.textContent).toLocaleLowerCase().includes(query));
+      item.hidden = !match;
+      if (match) dayVisible += 1;
+    });
+    day.hidden = dayVisible === 0;
+    if (active && dayVisible) {
+      day.querySelector(".transport-day-toggle").setAttribute("aria-expanded", "true");
+      day.querySelector(".transport-list").hidden = false;
+    }
+    visible += dayVisible;
+  });
+  const total = view.querySelectorAll(".transport-item").length;
+  controls.querySelector(".plan-filter-clear").disabled = !active;
+  controls.querySelector(".plan-filter-status").textContent = active ? visible + " of " + total + " shown" : total + " total";
+  let empty = view.querySelector(".plan-empty");
+  if (!empty) { empty = document.createElement("div"); empty.className = "plan-empty"; empty.textContent = "No matching plan items."; view.querySelector(".transport-days").insertAdjacentElement("afterend", empty); }
+  empty.hidden = visible !== 0;
+}
+
+document.querySelectorAll("main .view:has([data-plan-filter])").forEach((view) => {
+  const controls = view.querySelector("[data-plan-filter]");
+  const select = controls.querySelector("select");
+  view.querySelectorAll(".transport-day").forEach((day) => {
+    const time = day.querySelector("time");
+    const option = document.createElement("option");
+    option.value = time.dateTime; option.textContent = day.querySelector(".transport-weekday").textContent + " · " + time.textContent;
+    select.appendChild(option);
+  });
+  controls.querySelector("input").addEventListener("input", () => applyPlanFilter(view));
+  select.addEventListener("change", () => applyPlanFilter(view));
+  controls.querySelector(".plan-filter-clear").addEventListener("click", () => { controls.querySelector("input").value = ""; select.value = ""; applyPlanFilter(view); controls.querySelector("input").focus(); });
+  applyPlanFilter(view);
+});
+
 const transportItems = {};
 document.querySelectorAll(".transport-item[data-transport-id]").forEach((article) => {
   const id = article.dataset.transportId;
@@ -2091,6 +2166,7 @@ function renderTransportItem(id) {
       + (item.backupNames.length ? '<div class="transport-backup"><b>Backup:</b> ' + item.backupNames.map(esc).join(" / ") + "</div>" : "");
     team.hidden = item.names.length === 0 && item.backupNames.length === 0;
   }
+  applyPlanFilter(article.closest(".view"));
 }
 
 async function loadTransport() {

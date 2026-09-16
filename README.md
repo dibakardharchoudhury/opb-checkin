@@ -59,7 +59,8 @@ Public means the schedules and any names, addresses, places, or times written in
 available to anyone with the URL. Star Schedule and Food Pickup are static frontend content.
 Pickup / Drop Plan reads only validated card overrides (time/meal, topic, location/note, assigned
 people, and backup people) from `GET /api/public/transport`; only admins can save them. None of these
-views receives a session or can read workbook data or operational APIs.
+views receives a session or can read workbook data or operational APIs. Pickup / Drop Plan and Food
+Pickup filter their visible cards locally by free text and date; search text is not sent to the server.
 See [SECURITY.md](SECURITY.md)
 for the threat model, verified controls, and residual operational-privacy risk.
 
