@@ -55,8 +55,12 @@ function normalizeFoodPlanItem(item) {
   const menu = Array.isArray(item.menu)
     ? item.menu.filter((dish) => typeof dish === "string").map((dish) => dish.trim().slice(0, 160)).filter(Boolean).slice(0, 16)
     : [];
+  const names = Array.isArray(item.names)
+    ? item.names.filter((name) => typeof name === "string").map((name) => name.trim().slice(0, 60)).filter(Boolean).slice(0, 8)
+    : [];
   if (!meal || !provider) return null;
-  const normalized = { meal, provider, menu };
+  const normalized = { meal, provider, menu, names };
+  if (typeof item.time === "string") normalized.time = item.time.trim().slice(0, 30);
   if (typeof item.note === "string") normalized.note = item.note.trim().slice(0, 240);
   return normalized;
 }

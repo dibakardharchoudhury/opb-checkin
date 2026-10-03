@@ -128,7 +128,8 @@ app.get("/api/public/food-plan", async (_req, res) => {
 });
 app.post("/api/public/food-plan", requireAuth("admin"), async (req, res) => {
   try { res.json(await setFoodPlanItem(String(req.body?.id || ""), {
-    meal: req.body?.meal, provider: req.body?.provider, menu: req.body?.menu, note: req.body?.note,
+    meal: req.body?.meal, time: req.body?.time, provider: req.body?.provider,
+    menu: req.body?.menu, names: req.body?.names, note: req.body?.note,
   })); }
   catch (e) {
     if (/^invalid food plan/.test(e?.message || "")) return res.status(400).json({ error: "Enter valid food plan details." });

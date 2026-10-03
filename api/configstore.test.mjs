@@ -69,18 +69,22 @@ test("stores only validated public transport card fields", async () => {
 test("stores only validated public food plan fields", async () => {
   const saved = await setFoodPlanItem("mon-dinner", {
     meal: " Dinner ",
+    time: " 17:00 ",
     provider: " Internal / outsource ",
     menu: [" Lamb + chana kofta ", 42, "Option 2: Outsource", ""],
+    names: [" Prasenjit ", "Sudip", null, "Anirban Singha"],
     note: " Decision pending ",
   });
   assert.deepEqual(saved, {
-    id: "mon-dinner", meal: "Dinner", provider: "Internal / outsource",
-    menu: ["Lamb + chana kofta", "Option 2: Outsource"], note: "Decision pending",
+    id: "mon-dinner", meal: "Dinner", time: "17:00", provider: "Internal / outsource",
+    menu: ["Lamb + chana kofta", "Option 2: Outsource"],
+    names: ["Prasenjit", "Sudip", "Anirban Singha"], note: "Decision pending",
   });
   _resetCache();
   assert.deepEqual((await getConfig()).foodPlan["mon-dinner"], {
-    meal: "Dinner", provider: "Internal / outsource",
-    menu: ["Lamb + chana kofta", "Option 2: Outsource"], note: "Decision pending",
+    meal: "Dinner", time: "17:00", provider: "Internal / outsource",
+    menu: ["Lamb + chana kofta", "Option 2: Outsource"],
+    names: ["Prasenjit", "Sudip", "Anirban Singha"], note: "Decision pending",
   });
   await assert.rejects(() => setFoodPlanItem("../bad", { meal: "Dinner", provider: "Internal", menu: [] }));
   await assert.rejects(() => setFoodPlanItem("mon-dinner", { meal: "", provider: "", menu: [] }));

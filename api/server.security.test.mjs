@@ -86,10 +86,10 @@ test("food plan is public, user writes are forbidden, and admin updates are visi
   const adminToken = await issueSession({ email: "admin@opb.no", name: "Admin", role: "admin" });
   const saved = await fetch(`${base}/api/public/food-plan`, {
     method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
-    body: JSON.stringify({ id: "fri-dinner", meal: "Dinner", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], note: "Outsourced" }),
+    body: JSON.stringify({ id: "fri-dinner", meal: "Dinner", time: "17:30", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], names: ["Pratik"], note: "Outsourced" }),
   });
   assert.equal(saved.status, 200);
-  assert.deepEqual(await saved.json(), { id: "fri-dinner", meal: "Dinner", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], note: "Outsourced" });
+  assert.deepEqual(await saved.json(), { id: "fri-dinner", meal: "Dinner", time: "17:30", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], names: ["Pratik"], note: "Outsourced" });
   const visible = await (await fetch(`${base}/api/public/food-plan`)).json();
-  assert.deepEqual(visible.items["fri-dinner"], { meal: "Dinner", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], note: "Outsourced" });
+  assert.deepEqual(visible.items["fri-dinner"], { meal: "Dinner", time: "17:30", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], names: ["Pratik"], note: "Outsourced" });
 });
