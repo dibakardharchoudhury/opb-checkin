@@ -6,7 +6,7 @@ import { promises as fs } from "node:fs";
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "opb-cfg-"));
 process.env.DATA_DIR = dir;
-const { getConfig, setConfig, setTransportItem, _resetCache } = await import("./configstore.js");
+const { getConfig, setConfig, setFoodPlanItem, setTransportItem, _resetCache } = await import("./configstore.js");
 
 after(() => fs.rm(dir, { recursive: true, force: true }));
 
@@ -52,6 +52,7 @@ test("stores only validated public transport card fields", async () => {
     names: [" Dibakar ", 42, "Mayukh", ""],
     backupNames: [" Arunavo ", null, "Suprakash da"],
   });
+
   assert.deepEqual(saved, {
     id: "sat-1730", topic: "Star pickup", names: ["Dibakar", "Mayukh"],
     time: "17:30", note: "Airbnb to venue", backupNames: ["Arunavo", "Suprakash da"],
@@ -63,4 +64,24 @@ test("stores only validated public transport card fields", async () => {
   });
   await assert.rejects(() => setTransportItem("../bad", { topic: "No", names: [] }));
   await assert.rejects(() => setTransportItem("sat-1730", { topic: "", names: [] }));
+});
+
+test("stores only validated public food plan fields", async () => {
+  const saved = await setFoodPlanItem("mon-dinner", {
+    meal: " Dinner ",
+    provider: " Internal / outsource ",
+    menu: [" Lamb + chana kofta ", 42, "Option 2: Outsource", ""],
+    note: " Decision pending ",
+  });
+  assert.deepEqual(saved, {
+    id: "mon-dinner", meal: "Dinner", provider: "Internal / outsource",
+    menu: ["Lamb + chana kofta", "Option 2: Outsource"], note: "Decision pending",
+  });
+  _resetCache();
+  assert.deepEqual((await getConfig()).foodPlan["mon-dinner"], {
+    meal: "Dinner", provider: "Internal / outsource",
+    menu: ["Lamb + chana kofta", "Option 2: Outsource"], note: "Decision pending",
+  });
+  await assert.rejects(() => setFoodPlanItem("../bad", { meal: "Dinner", provider: "Internal", menu: [] }));
+  await assert.rejects(() => setFoodPlanItem("mon-dinner", { meal: "", provider: "", menu: [] }));
 });

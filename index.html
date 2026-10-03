@@ -248,7 +248,8 @@
   .transport-editor-card { width:min(440px,100%); padding:22px; border:1px solid rgba(217,164,65,.65); border-radius:8px; background:var(--ivory); box-shadow:0 20px 55px rgba(52,20,21,.25); }
   .transport-editor-card h2 { margin:0 0 18px; color:var(--maroon); font-family:"Cormorant Garamond",serif; font-size:25px; }
   .transport-editor-card label { display:block; margin:12px 0 6px; color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; }
-  .transport-editor-card input { width:100%; }
+  .transport-editor-card input, .transport-editor-card textarea { width:100%; }
+  .transport-editor-card textarea { min-height:112px; resize:vertical; }
   .transport-editor-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:18px; }
   .transport-editor-actions .secondary { background:transparent; box-shadow:none; color:var(--maroon); }
   .transport-editor-error { min-height:18px; margin-top:8px; color:var(--danger); font-size:12px; }
@@ -272,6 +273,8 @@
   .food-slot-field { min-width:0; }
   .food-slot-field b { display:block; margin-bottom:2px; color:var(--muted); font-size:9px; letter-spacing:.7px; text-transform:uppercase; }
   .food-slot-field span { color:#8b8179; font-size:12px; }
+  .food-menu { display:flex; flex-wrap:wrap; gap:6px; margin:11px 0 0; padding:10px 0 0; border-top:1px solid rgba(217,164,65,.25); list-style:none; }
+  .food-menu li { padding:5px 9px; border:1px solid rgba(217,164,65,.42); border-radius:999px; background:var(--cream); color:var(--ink); font-size:12px; font-weight:600; }
   @media (max-width:560px) {
     .plan-filter { grid-template-columns:minmax(0,1fr) 40px; }
     .plan-filter select { grid-column:1/-1; grid-row:2; }
@@ -1017,7 +1020,7 @@
           <div class="dashtitle">Food Pickup</div>
           <p>Lunch and dinner collection plan &middot; 16&ndash;19 October 2026</p>
         </div>
-        <div class="transport-count"><b>8</b><span>Slots</span></div>
+        <div class="transport-count"><b>7</b><span>Meals</span></div>
       </div>
       <div class="plan-filter" data-plan-filter>
         <div class="plan-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="Search food plan" aria-label="Search food pickup plan" autocomplete="off" /></div>
@@ -1163,6 +1166,25 @@
   </div>
 </div>
 
+<div id="foodPlanEditor" class="transport-editor" hidden>
+  <div class="transport-editor-card" role="dialog" aria-modal="true" aria-labelledby="foodPlanEditorTitle">
+    <h2 id="foodPlanEditorTitle">Edit food plan</h2>
+    <label for="foodPlanMeal">Meal</label>
+    <input id="foodPlanMeal" maxlength="30" autocomplete="off" />
+    <label for="foodPlanProvider">Provider / sponsorship</label>
+    <input id="foodPlanProvider" maxlength="120" autocomplete="off" />
+    <label for="foodPlanMenu">Menu / options</label>
+    <textarea id="foodPlanMenu" maxlength="2560" placeholder="One dish or option per line"></textarea>
+    <label for="foodPlanNote">Note</label>
+    <input id="foodPlanNote" maxlength="240" autocomplete="off" placeholder="Optional" />
+    <div id="foodPlanEditorError" class="transport-editor-error"></div>
+    <div class="transport-editor-actions">
+      <button id="foodPlanCancel" class="secondary" type="button">Cancel</button>
+      <button id="foodPlanSave" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="ver-badge checking" id="verBadge" role="status" aria-live="polite" title="App build"><span class="ver-dot"></span><span id="verText">…</span></div>
 
 <script>
@@ -1172,8 +1194,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.75"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-09-16T05:33:12Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.76"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-10-03T11:12:30Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -2076,13 +2098,67 @@ document.getElementById("nav").addEventListener("click", (e) => {
 });
 document.querySelectorAll(".transport-days").forEach((days) => days.addEventListener("click", (e) => {
   const edit = e.target.closest(".transport-edit");
-  if (edit) { openTransportEditor(edit.closest(".transport-item")); return; }
+  if (edit) {
+    const item = edit.closest(".transport-item");
+    if (item.dataset.foodPlanId) openFoodPlanEditor(item);
+    else openTransportEditor(item);
+    return;
+  }
   const toggle = e.target.closest(".transport-day-toggle"); if (!toggle) return;
   const list = $(toggle.getAttribute("aria-controls")); if (!list) return;
   const expanded = toggle.getAttribute("aria-expanded") === "true";
   toggle.setAttribute("aria-expanded", String(!expanded));
   list.hidden = expanded;
 }));
+
+const foodPlanItems = {
+  "fri-dinner": { day:"Friday", date:"2026-10-16", dateLabel:"16 Oct", meal:"Dinner", provider:"Outsourced (CurryOn)", menu:["Fried Rice", "Aloor Dam", "Paneer"], note:"" },
+  "sat-lunch": { day:"Saturday", date:"2026-10-17", dateLabel:"17 Oct", meal:"Lunch", provider:"Sponsored (DPG)", menu:["Vegetarian pulao", "Mixed vegetable curry", "Butter Paneer Masala or Shahi Paneer", "Dessert"], note:"" },
+  "sat-dinner": { day:"Saturday", date:"2026-10-17", dateLabel:"17 Oct", meal:"Dinner", provider:"Sponsored (T9 / Indiespice)", menu:[], note:"Menu to be confirmed" },
+  "sun-lunch": { day:"Sunday", date:"2026-10-18", dateLabel:"18 Oct", meal:"Lunch", provider:"Internal", menu:["Kichuri", "Labra", "Chutney"], note:"" },
+  "sun-dinner": { day:"Sunday", date:"2026-10-18", dateLabel:"18 Oct", meal:"Dinner", provider:"Sponsored (T9 / Indiespice)", menu:[], note:"Menu to be confirmed" },
+  "mon-lunch": { day:"Monday", date:"2026-10-19", dateLabel:"19 Oct", meal:"Lunch", provider:"Two options under consideration", menu:["Option 1: Delhi / New Ambassador", "Option 2: Pulao, Aloo fulkopi, Dhokar dalna, Chutney"], note:"Final option to be confirmed" },
+  "mon-dinner": { day:"Monday", date:"2026-10-19", dateLabel:"19 Oct", meal:"Dinner", provider:"Two options under consideration", menu:["Option 1: Internal - Lamb + chana kofta", "Option 2: Outsource"], note:"Final option to be confirmed" },
+};
+
+function foodPlanCard(id, item) {
+  const menu = item.menu.length ? '<ul class="food-menu">' + item.menu.map((dish) => "<li>" + esc(dish) + "</li>").join("") + "</ul>" : "";
+  const note = item.note ? '<p class="transport-note">' + esc(item.note) + "</p>" : "";
+  return '<article class="transport-item" data-food-plan-id="' + id + '">'
+    + '<div class="transport-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M21 15V2a5 5 0 0 0-3 4.5V12a3 3 0 0 0 3 3zM18 15v7"/></svg></div>'
+    + '<div class="transport-card"><div class="transport-when"><span class="transport-time">' + esc(item.meal) + '</span></div>'
+    + '<h3 class="transport-title">' + esc(item.provider) + "</h3>" + note + menu
+    + '<button class="transport-edit" type="button" title="Edit food plan" aria-label="Edit food plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div></article>';
+}
+
+function buildFoodPlan() {
+  const view = document.querySelector('main .view[data-view="food-pickup"]');
+  const days = view.querySelector(".transport-days");
+  const grouped = [];
+  Object.entries(foodPlanItems).forEach(([id, item]) => {
+    let group = grouped.find((entry) => entry.date === item.date);
+    if (!group) { group = { day:item.day, date:item.date, dateLabel:item.dateLabel, items:[] }; grouped.push(group); }
+    group.items.push([id, item]);
+  });
+  days.innerHTML = grouped.map((group) => {
+    const key = "food-pickup-" + group.day.toLowerCase().slice(0, 3);
+    return '<section class="transport-day" aria-labelledby="' + key + '"><h2 class="transport-day-header" id="' + key + '">'
+      + '<button class="transport-day-toggle" type="button" aria-expanded="true" aria-controls="' + key + '-list"><span class="transport-weekday">' + group.day + '</span>'
+      + '<time datetime="' + group.date + '">' + group.dateLabel + '</time><svg class="transport-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2>'
+      + '<div class="transport-list" id="' + key + '-list">' + group.items.map(([id, item]) => foodPlanCard(id, item)).join("") + "</div></section>";
+  }).join("");
+}
+
+function renderFoodPlanItem(id) {
+  const current = document.querySelector(`[data-food-plan-id="${id}"]`);
+  if (!current) return;
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = foodPlanCard(id, foodPlanItems[id]);
+  current.replaceWith(wrapper.firstElementChild);
+  applyPlanFilter(document.querySelector('main .view[data-view="food-pickup"]'));
+}
+
+buildFoodPlan();
 
 function applyPlanFilter(view) {
   const controls = view.querySelector("[data-plan-filter]");
@@ -2188,6 +2264,52 @@ async function loadTransport() {
     });
   } catch {}
 }
+
+async function loadFoodPlan() {
+  try {
+    const response = await fetch(BACKEND_URL + "/api/public/food-plan", { cache:"no-store" });
+    const body = await response.json();
+    if (!response.ok || !body.items) return;
+    Object.entries(body.items).forEach(([id, item]) => {
+      if (!foodPlanItems[id] || !item || typeof item.meal !== "string" || typeof item.provider !== "string" || !Array.isArray(item.menu)) return;
+      foodPlanItems[id] = { ...foodPlanItems[id], meal:item.meal, provider:item.provider, menu:item.menu, note:typeof item.note === "string" ? item.note : "" };
+      renderFoodPlanItem(id);
+    });
+  } catch {}
+}
+
+let editingFoodPlanId = "";
+function openFoodPlanEditor(article) {
+  if (!isAdmin() || !article) return;
+  editingFoodPlanId = article.dataset.foodPlanId;
+  const item = foodPlanItems[editingFoodPlanId];
+  $("foodPlanMeal").value = item.meal;
+  $("foodPlanProvider").value = item.provider;
+  $("foodPlanMenu").value = item.menu.join("\n");
+  $("foodPlanNote").value = item.note;
+  $("foodPlanEditorError").textContent = "";
+  $("foodPlanEditor").hidden = false;
+  $("foodPlanProvider").focus();
+}
+function closeFoodPlanEditor() { $("foodPlanEditor").hidden = true; editingFoodPlanId = ""; }
+$("foodPlanCancel").onclick = closeFoodPlanEditor;
+$("foodPlanEditor").addEventListener("click", (event) => { if (event.target === $("foodPlanEditor")) closeFoodPlanEditor(); });
+$("foodPlanSave").onclick = async () => {
+  const meal = $("foodPlanMeal").value.trim();
+  const provider = $("foodPlanProvider").value.trim();
+  const menu = $("foodPlanMenu").value.split(/\r?\n/).map((dish) => dish.trim()).filter(Boolean);
+  const note = $("foodPlanNote").value.trim();
+  if (!meal || !provider) { $("foodPlanEditorError").textContent = "Meal and provider are required."; return; }
+  $("foodPlanSave").disabled = true; $("foodPlanEditorError").textContent = "";
+  try {
+    const response = await api("/api/public/food-plan", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ id:editingFoodPlanId, meal, provider, menu, note }) });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Could not save.");
+    foodPlanItems[editingFoodPlanId] = { ...foodPlanItems[editingFoodPlanId], meal:body.meal, provider:body.provider, menu:body.menu, note:body.note || "" };
+    renderFoodPlanItem(editingFoodPlanId); closeFoodPlanEditor(); toast("Food plan updated.");
+  } catch (error) { $("foodPlanEditorError").textContent = error.message || "Could not save."; }
+  finally { $("foodPlanSave").disabled = false; }
+};
 
 let editingTransportId = "";
 function openTransportEditor(article) {
@@ -2354,6 +2476,7 @@ function signOut() {
   sessionStorage.removeItem("opb_tok");
   document.body.classList.remove("is-admin");
   closeTransportEditor();
+  closeFoodPlanEditor();
   sheetLoaded = false;
   document.body.classList.remove("authed");
   showView("transport");
@@ -2405,6 +2528,7 @@ $("viewPublic").onclick = () => showView("transport");
 (async function bootAuth() {
   initGoogle();
   loadTransport();
+  loadFoodPlan();
   if (session.token) {
     try {
       const r = await fetch(BACKEND_URL + "/api/me", { headers: { Authorization: "Bearer " + session.token } });

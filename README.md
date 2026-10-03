@@ -56,9 +56,10 @@ their API data must be exposed through a purpose-built public endpoint. Operatio
 protected by backend sessions.
 
 Public means the schedules and any names, addresses, places, or times written into them are
-available to anyone with the URL. Star Schedule and Food Pickup are static frontend content.
-Pickup / Drop Plan reads only validated card overrides (time/meal, topic, location/note, assigned
-people, and backup people) from `GET /api/public/transport`; only admins can save them. None of these
+available to anyone with the URL. Star Schedule is static frontend content. Pickup / Drop Plan
+reads only validated card overrides (time/meal, topic, location/note, assigned people, and backup
+people) from `GET /api/public/transport`. Food Pickup similarly reads validated meal, provider,
+menu, and note overrides from `GET /api/public/food-plan`; only admins can save either plan. None of these
 views receives a session or can read workbook data or operational APIs. Pickup / Drop Plan and Food
 Pickup filter their visible cards locally by free text and date; search text is not sent to the server.
 See [SECURITY.md](SECURITY.md)

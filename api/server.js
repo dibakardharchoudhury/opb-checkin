@@ -21,7 +21,7 @@ import {
 import { evaluateScan, nowInZone, normalizeCutoff, normalizeEventDate, passDateYMD } from "./rules.js";
 import { verifyProviderToken, resolveRoleMerged, issueSession, requireAuth } from "./auth.js";
 import { listStoredUsers, upsertUser, removeUser } from "./userstore.js";
-import { getConfig, setConfig, setTransportItem } from "./configstore.js";
+import { getConfig, setConfig, setFoodPlanItem, setTransportItem } from "./configstore.js";
 
 const TABLE_NAME = process.env.TABLE_NAME || "Table1";
 const TZ = process.env.TZ_NAME || "Europe/Oslo";
@@ -119,6 +119,21 @@ app.post("/api/public/transport", requireAuth("admin"), async (req, res) => {
     if (/^invalid transport/.test(e?.message || "")) return res.status(400).json({ error: "Enter valid transport card details." });
     console.error("transport save failed:", e?.message || e);
     res.status(500).json({ error: "Could not save transport details." });
+  }
+});
+
+app.get("/api/public/food-plan", async (_req, res) => {
+  try { res.json({ items: (await getConfig()).foodPlan || {} }); }
+  catch (e) { console.error("food plan load failed:", e?.message || e); res.status(500).json({ error: "Could not load food plan." }); }
+});
+app.post("/api/public/food-plan", requireAuth("admin"), async (req, res) => {
+  try { res.json(await setFoodPlanItem(String(req.body?.id || ""), {
+    meal: req.body?.meal, provider: req.body?.provider, menu: req.body?.menu, note: req.body?.note,
+  })); }
+  catch (e) {
+    if (/^invalid food plan/.test(e?.message || "")) return res.status(400).json({ error: "Enter valid food plan details." });
+    console.error("food plan save failed:", e?.message || e);
+    res.status(500).json({ error: "Could not save food plan." });
   }
 });
 

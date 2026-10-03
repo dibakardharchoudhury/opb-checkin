@@ -59,6 +59,7 @@ test("transport labels are public, user writes are forbidden, and admin updates 
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
     body: JSON.stringify({ id: "sat-1730", topic: "Changed", names: ["Someone"] }),
   });
+
   assert.equal(denied.status, 403);
   const adminToken = await issueSession({ email: "admin@opb.no", name: "Admin", role: "admin" });
   const saved = await fetch(`${base}/api/public/transport`, {
@@ -69,4 +70,26 @@ test("transport labels are public, user writes are forbidden, and admin updates 
   assert.deepEqual(await saved.json(), { id: "sat-1730", topic: "Changed", names: ["Lead", "Driver"], time: "17:45", note: "Airbnb to venue", backupNames: ["Backup"] });
   const visible = await (await fetch(`${base}/api/public/transport`)).json();
   assert.deepEqual(visible.items["sat-1730"], { topic: "Changed", names: ["Lead", "Driver"], time: "17:45", note: "Airbnb to venue", backupNames: ["Backup"] });
+});
+
+test("food plan is public, user writes are forbidden, and admin updates are visible", async () => {
+  const publicResponse = await fetch(`${base}/api/public/food-plan`);
+  assert.equal(publicResponse.status, 200);
+  assert.deepEqual(Object.keys(await publicResponse.json()), ["items"]);
+  const userToken = await issueSession({ email: "user@opb.no", name: "User", role: "user" });
+  const denied = await fetch(`${base}/api/public/food-plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+    body: JSON.stringify({ id: "fri-dinner", meal: "Dinner", provider: "Changed", menu: [] }),
+  });
+  assert.equal(denied.status, 403);
+  const adminToken = await issueSession({ email: "admin@opb.no", name: "Admin", role: "admin" });
+  const saved = await fetch(`${base}/api/public/food-plan`, {
+    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ id: "fri-dinner", meal: "Dinner", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], note: "Outsourced" }),
+  });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(await saved.json(), { id: "fri-dinner", meal: "Dinner", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], note: "Outsourced" });
+  const visible = await (await fetch(`${base}/api/public/food-plan`)).json();
+  assert.deepEqual(visible.items["fri-dinner"], { meal: "Dinner", provider: "CurryOn", menu: ["Fried Rice", "Paneer"], note: "Outsourced" });
 });

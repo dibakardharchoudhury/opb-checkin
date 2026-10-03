@@ -17,7 +17,7 @@ const DATA_DIR = process.env.DATA_DIR
     : path.join(os.tmpdir(), "opb-data"));
 const FILE = path.join(DATA_DIR, "opb-config.json");
 
-const DEFAULT = { workbook: null, scanSheet: "", guestSheets: [], cutoff: "", eventDate: "", transport: {} };
+const DEFAULT = { workbook: null, scanSheet: "", guestSheets: [], cutoff: "", eventDate: "", transport: {}, foodPlan: {} };
 let cache = null;
 
 function normalizeTransportItem(item) {
@@ -43,6 +43,30 @@ function normalizeTransport(value) {
   for (const [id, item] of Object.entries(value).slice(0, 50)) {
     if (!/^[a-z0-9-]{1,60}$/.test(id)) continue;
     const normalized = normalizeTransportItem(item);
+    if (normalized) result[id] = normalized;
+  }
+  return result;
+}
+
+function normalizeFoodPlanItem(item) {
+  if (!item || typeof item !== "object") return null;
+  const meal = typeof item.meal === "string" ? item.meal.trim().slice(0, 30) : "";
+  const provider = typeof item.provider === "string" ? item.provider.trim().slice(0, 120) : "";
+  const menu = Array.isArray(item.menu)
+    ? item.menu.filter((dish) => typeof dish === "string").map((dish) => dish.trim().slice(0, 160)).filter(Boolean).slice(0, 16)
+    : [];
+  if (!meal || !provider) return null;
+  const normalized = { meal, provider, menu };
+  if (typeof item.note === "string") normalized.note = item.note.trim().slice(0, 240);
+  return normalized;
+}
+
+function normalizeFoodPlan(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result = {};
+  for (const [id, item] of Object.entries(value).slice(0, 20)) {
+    if (!/^[a-z0-9-]{1,60}$/.test(id)) continue;
+    const normalized = normalizeFoodPlanItem(item);
     if (normalized) result[id] = normalized;
   }
   return result;
@@ -74,6 +98,7 @@ function normalize(c) {
     cutoff: normalizeCutoff(c?.cutoff),
     eventDate: normalizeEventDate(c?.eventDate),
     transport: normalizeTransport(c?.transport),
+    foodPlan: normalizeFoodPlan(c?.foodPlan),
   };
 }
 
@@ -98,6 +123,7 @@ export async function setConfig(patch) {
     if ("cutoff" in patch) c.cutoff = normalizeCutoff(patch.cutoff);
     if ("eventDate" in patch) c.eventDate = normalizeEventDate(patch.eventDate);
     if ("transport" in patch) c.transport = normalizeTransport(patch.transport);
+    if ("foodPlan" in patch) c.foodPlan = normalizeFoodPlan(patch.foodPlan);
   }
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(FILE, JSON.stringify(c, null, 2));
@@ -110,6 +136,17 @@ export async function setTransportItem(id, item) {
   if (!normalized) throw new Error("invalid transport item");
   const config = await load();
   config.transport = { ...config.transport, [id]: normalized };
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(FILE, JSON.stringify(config, null, 2));
+  return { id, ...normalized };
+}
+
+export async function setFoodPlanItem(id, item) {
+  if (!/^[a-z0-9-]{1,60}$/.test(String(id || ""))) throw new Error("invalid food plan id");
+  const normalized = normalizeFoodPlanItem(item);
+  if (!normalized) throw new Error("invalid food plan item");
+  const config = await load();
+  config.foodPlan = { ...config.foodPlan, [id]: normalized };
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(FILE, JSON.stringify(config, null, 2));
   return { id, ...normalized };
