@@ -1202,8 +1202,8 @@ const COOLDOWN_MS = 2500;
 // Social sign-in client IDs (create these once; see README). Leave a provider's
 // value starting with "REPLACE" to hide that button.
 const AUTH_CFG = { google: "64461798273-vor5it5qvfr4gvm89fjv1hmsk2atbfa1.apps.googleusercontent.com", microsoft: "b56289aa-27f5-4380-a2cf-58a829e7c638" };
-const APP_VERSION = "v1.77"; // major.minor; keep in lock-step with sw.js VERSION and version.json
-const APP_BUILT = "2026-10-03T11:40:19Z"; // build time in UTC ISO; the badge renders it in Oslo time
+const APP_VERSION = "v1.78"; // major.minor; keep in lock-step with sw.js VERSION and version.json
+const APP_BUILT = "2026-10-03T11:44:30Z"; // build time in UTC ISO; the badge renders it in Oslo time
 // -----------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -2122,9 +2122,9 @@ document.querySelectorAll(".transport-days").forEach((days) => days.addEventList
 const foodPlanItems = {
   "fri-dinner": { day:"Friday", date:"2026-10-16", dateLabel:"16 Oct", meal:"Dinner", time:"17:30", provider:"Outsourced (CurryOn)", menu:["Fried Rice", "Aloor Dam", "Paneer"], names:["Pratik"], note:"" },
   "sat-lunch": { day:"Saturday", date:"2026-10-17", dateLabel:"17 Oct", meal:"Lunch", time:"12:00", provider:"Sponsored (DPG)", menu:["Vegetarian pulao", "Mixed vegetable curry", "Butter Paneer Masala or Shahi Paneer", "Dessert"], names:["Prasenjit", "Sudip", "Anirban Singha"], note:"" },
-  "sat-dinner": { day:"Saturday", date:"2026-10-17", dateLabel:"17 Oct", meal:"Dinner", time:"17:00", provider:"Sponsored (T9 / Indiespice)", menu:[], names:["Prasenjit", "Sudip", "Anirban Singha"], note:"Menu to be confirmed" },
+  "sat-dinner": { day:"Saturday", date:"2026-10-17", dateLabel:"17 Oct", meal:"Dinner", time:"17:00", provider:"Sponsored (IndieSpice)", menu:[], names:["Prasenjit", "Sudip", "Anirban Singha"], note:"Menu to be confirmed" },
   "sun-lunch": { day:"Sunday", date:"2026-10-18", dateLabel:"18 Oct", meal:"Lunch", time:"12:00", provider:"Internal", menu:["Kichuri", "Labra", "Chutney"], names:["Prasenjit", "Sudip", "Anirban Singha"], note:"" },
-  "sun-dinner": { day:"Sunday", date:"2026-10-18", dateLabel:"18 Oct", meal:"Dinner", time:"17:00", provider:"Sponsored (T9 / Indiespice)", menu:[], names:["Prasenjit", "Sudip", "Anirban Singha"], note:"Menu to be confirmed" },
+  "sun-dinner": { day:"Sunday", date:"2026-10-18", dateLabel:"18 Oct", meal:"Dinner", time:"17:00", provider:"Sponsored (T9)", menu:[], names:["Prasenjit", "Sudip", "Anirban Singha"], note:"Menu to be confirmed" },
   "mon-lunch": { day:"Monday", date:"2026-10-19", dateLabel:"19 Oct", meal:"Lunch", time:"12:00", provider:"Two options under consideration", menu:["Option 1: Delhi / New Ambassador", "Option 2: Pulao, Aloo fulkopi, Dhokar dalna, Chutney"], names:["Prasenjit", "Sudip", "Anirban Singha"], note:"Final option to be confirmed" },
   "mon-dinner": { day:"Monday", date:"2026-10-19", dateLabel:"19 Oct", meal:"Dinner", time:"17:00", provider:"Two options under consideration", menu:["Option 1: Internal - Lamb + chana kofta", "Option 2: Outsource"], names:["Prasenjit", "Sudip", "Anirban Singha"], note:"Final option to be confirmed" },
 };
